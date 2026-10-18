@@ -5,11 +5,14 @@ import { z } from "zod";
 export const ProviderNameSchema = z.enum(["claude", "codex"]);
 export type ProviderName = z.infer<typeof ProviderNameSchema>;
 
+export const ProjectProfileSchema = z.enum(["generic", "node", "python"]);
+export type ProjectProfile = z.infer<typeof ProjectProfileSchema>;
+
 export const WorkflowConfigSchema = z.object({
   schemaVersion: z.literal(1),
   project: z.object({
     name: z.string().trim().min(1),
-    profile: z.enum(["generic", "node", "python"]),
+    profile: ProjectProfileSchema,
   }),
   providers: z.object({
     author: ProviderNameSchema,
@@ -18,9 +21,11 @@ export const WorkflowConfigSchema = z.object({
   commands: z.object({
     verify: z.string().trim().min(1),
   }),
-  risk: z.object({
-    highRiskPaths: z.array(z.string().trim().min(1)),
-  }),
+  risk: z
+    .object({
+      highRiskPaths: z.array(z.string().trim().min(1)).default([]),
+    })
+    .default({ highRiskPaths: [] }),
   review: z
     .object({
       maxRounds: z.number().int().min(1).max(10).default(3),
