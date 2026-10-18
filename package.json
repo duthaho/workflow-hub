@@ -1,0 +1,34 @@
+{
+  "name": "@duthaho/workflow-hub",
+  "version": "0.0.0",
+  "description": "Provider-neutral agentic development and code review workflow for Claude Code and Codex",
+  "type": "module",
+  "private": false,
+  "license": "MIT",
+  "bin": {
+    "workflow-hub": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "schemas",
+    "templates"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run typecheck && npm test && npm run build"
+  },
+  "dependencies": {
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.8"
+  }
+}
