@@ -1,10 +1,26 @@
 {
   "name": "@duthaho/workflow-hub",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Provider-neutral agentic development and code review workflow for Claude Code and Codex",
   "type": "module",
-  "private": false,
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/duthaho/workflow-hub.git"
+  },
+  "homepage": "https://github.com/duthaho/workflow-hub#readme",
+  "keywords": [
+    "code-review",
+    "claude-code",
+    "codex",
+    "github-actions",
+    "agentic-workflow"
+  ],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "bin": {
     "workflow-hub": "./dist/cli.js"
   },
@@ -18,6 +34,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "prepare": "npm run build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",

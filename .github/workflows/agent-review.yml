@@ -1,0 +1,62 @@
+name: Agent Review
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: Review provider
+        required: true
+        type: choice
+        options: [claude, codex]
+      kind:
+        description: Review kind
+        required: true
+        type: choice
+        options: [correctness, security]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-review-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  claude:
+    if: vars.WORKFLOW_HUB_AI_REVIEW == 'enabled' && (vars.WORKFLOW_HUB_REVIEW_PROVIDER == 'claude' || inputs.provider == 'claude')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm install --global @anthropic-ai/claude-code@2.1.302
+      - run: node dist/cli.js review --provider claude --kind "${{ inputs.kind || 'correctness' }}" --base origin/main
+
+  codex:
+    if: vars.WORKFLOW_HUB_AI_REVIEW == 'enabled' && (vars.WORKFLOW_HUB_REVIEW_PROVIDER == 'codex' || inputs.provider == 'codex')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm install --global @openai/codex@0.163.0
+      - run: node dist/cli.js review --provider codex --kind "${{ inputs.kind || 'correctness' }}" --base origin/main

@@ -63,6 +63,25 @@ describe("initializeProject", () => {
     );
   });
 
+  it("generates profile-specific bootstrap steps", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "workflow-hub-init-"));
+    await initializeProject({
+      cwd: directory,
+      projectName: "generic-demo",
+      profile: "generic",
+      author: "codex",
+      reviewers: ["claude"],
+      verifyCommand: "make check",
+    });
+
+    const workflow = await readFile(
+      join(directory, ".github/workflows/workflow-hub.yml"),
+      "utf8",
+    );
+    expect(workflow).not.toContain("npm ci");
+    expect(workflow).toContain("workflow-hub verify");
+  });
+
   it("supports a dry run without writing files", async () => {
     const directory = await mkdtemp(join(tmpdir(), "workflow-hub-init-"));
     const result = await initializeProject({

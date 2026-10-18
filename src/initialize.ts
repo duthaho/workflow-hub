@@ -71,7 +71,19 @@ const pullRequestTemplate = `## Summary
 - [ ] Independent human approval complete (high risk)
 `;
 
-const githubWorkflow = `name: Workflow Hub
+function buildGithubWorkflow(profile: ProjectProfile): string {
+  const nodeCache = profile === "node" ? "\n          cache: npm" : "";
+  const projectBootstrap =
+    profile === "node"
+      ? "      - run: npm ci\n"
+      : profile === "python"
+        ? `      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.13"
+`
+        : "";
+
+  return `name: Workflow Hub
 
 on:
   pull_request:
@@ -89,17 +101,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: "22"
-          cache: npm
-      - run: npm ci
-      - run: npx workflow-hub verify
-      - run: npx workflow-hub doctor --ci
+          node-version: "22"${nodeCache}
+${projectBootstrap}      - run: npm install --global @duthaho/workflow-hub@0.1.0
+      - run: workflow-hub verify
+      - run: workflow-hub doctor --ci
 `;
+}
 
 function buildFiles(options: InitializeProjectOptions): Map<string, string> {
   const config = {
@@ -137,7 +149,7 @@ function buildFiles(options: InitializeProjectOptions): Map<string, string> {
     [".workflow-hub/prompts/correctness.md", correctnessPrompt],
     [".workflow-hub/prompts/security.md", securityPrompt],
     [".github/pull_request_template.md", pullRequestTemplate],
-    [".github/workflows/workflow-hub.yml", githubWorkflow],
+    [".github/workflows/workflow-hub.yml", buildGithubWorkflow(options.profile)],
   ]);
 
   if (
