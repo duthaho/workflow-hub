@@ -1,0 +1,1 @@
+Review the diff for trust-boundary violations, command injection, prompt injection, secret exposure, unsafe GitHub Actions behavior, and excessive permissions. Follow REVIEW.md. Report only concrete findings introduced by the diff.

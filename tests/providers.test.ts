@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildProviderInvocation,
   extractStructuredReport,
+  reviewReportJsonSchema,
 } from "../src/providers.js";
 
 describe("buildProviderInvocation", () => {
@@ -38,6 +39,23 @@ describe("buildProviderInvocation", () => {
     expect(invocation.args).toContain("--output-last-message");
     expect(invocation.args).not.toContain(
       "--dangerously-bypass-approvals-and-sandbox",
+    );
+  });
+});
+
+describe("reviewReportJsonSchema", () => {
+  it("uses a strict provider schema without controller-owned fingerprints", () => {
+    const schema = reviewReportJsonSchema as unknown as {
+      properties: {
+        findings: {
+          items: { properties: Record<string, unknown>; required: string[] };
+        };
+      };
+    };
+    const finding = schema.properties.findings.items;
+    expect(finding.properties).not.toHaveProperty("fingerprint");
+    expect(finding.required.sort()).toEqual(
+      Object.keys(finding.properties).sort(),
     );
   });
 });

@@ -16,9 +16,25 @@ export interface ProviderInvocation {
   outputSource: "stdout" | "file";
 }
 
-export const reviewReportJsonSchema = z.toJSONSchema(ReviewReportSchema, {
-  target: "draft-7",
-});
+function buildProviderReportJsonSchema(): z.core.JSONSchema.JSONSchema {
+  const schema = structuredClone(
+    z.toJSONSchema(ReviewReportSchema, { target: "draft-7" }),
+  ) as z.core.JSONSchema.JSONSchema & {
+    properties?: Record<string, unknown>;
+  };
+  const findings = schema.properties?.findings as
+    | { items?: { properties?: Record<string, unknown>; required?: string[] } }
+    | undefined;
+  const finding = findings?.items;
+  if (!finding?.properties) {
+    throw new Error("Unable to generate provider review JSON schema");
+  }
+  delete finding.properties.fingerprint;
+  finding.required = Object.keys(finding.properties);
+  return schema;
+}
+
+export const reviewReportJsonSchema = buildProviderReportJsonSchema();
 
 export function buildProviderInvocation(
   provider: ProviderName,

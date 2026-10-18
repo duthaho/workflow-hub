@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "name": "workflow-hub",
+    "profile": "node"
+  },
+  "providers": {
+    "author": "claude",
+    "reviewers": ["codex"]
+  },
+  "commands": {
+    "verify": "npm run check"
+  },
+  "risk": {
+    "highRiskPaths": [
+      ".github/**",
+      "src/providers.ts",
+      "src/review.ts",
+      "src/verification.ts",
+      "src/policy.ts"
+    ]
+  },
+  "review": {
+    "maxRounds": 3,
+    "minimumConfidence": 0.8
+  }
+}
