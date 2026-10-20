@@ -67,6 +67,17 @@ describe("finding verification", () => {
     expect(result.findings[0]?.state).toBe("dismissed_false_positive");
   });
 
+  it("fails closed instead of dismissing an invalid finding location", async () => {
+    const result = await verifyFindings({
+      findings: [{ ...finding, location: { ...finding.location, startLine: 11, endLine: 11 } }],
+      verifiers: [verifier("claude", true)], quorum: 1, minimumConfidence: 0.8, timeoutMs: 100,
+      lineCounts: { "src/run.ts": 10 },
+      context: { sessionId: "s", round: 1, baseSha: "base", headSha: "head", changedFiles: ["src/run.ts"], diff: "diff" },
+    });
+    expect(result.blocked).toBe(true);
+    expect(result.findings[0]?.state).toBe("candidate");
+  });
+
   it("fails closed when a finding has no nonblank evidence", async () => {
     for (const evidence of [[], [{ role: "security-scout" as const, provider: "codex", text: "   " }]]) {
       const result = await verifyFindings({

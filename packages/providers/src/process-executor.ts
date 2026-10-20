@@ -13,7 +13,12 @@ export interface ProviderProcessExecutor {
 export const defaultProviderProcessExecutor: ProviderProcessExecutor = {
   run(command, args, options) {
     return new Promise((resolve, reject) => {
-      const child = spawn(command, args, { cwd: options.cwd, shell: false, stdio: ["pipe", "pipe", "pipe"] });
+      const child = spawn(command, args, {
+        cwd: options.cwd,
+        detached: process.platform !== "win32",
+        shell: false,
+        stdio: ["pipe", "pipe", "pipe"],
+      });
       child.stdin.on("error", () => undefined);
       child.stdin.end(options.stdin ?? "");
       let stdout = "";
@@ -21,8 +26,18 @@ export const defaultProviderProcessExecutor: ProviderProcessExecutor = {
       let timedOut = false;
       const timer = options.timeoutMs === undefined ? undefined : setTimeout(() => {
         timedOut = true;
-        child.kill("SIGTERM");
-        const forceKill = setTimeout(() => child.kill("SIGKILL"), 1_000);
+        const killProcessTree = (signal: NodeJS.Signals) => {
+          try {
+            if (process.platform === "win32") child.kill(signal);
+            else process.kill(-child.pid!, signal);
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== "ESRCH") {
+              // The process has already failed to terminate; close handling still reports timeout.
+            }
+          }
+        };
+        killProcessTree("SIGTERM");
+        const forceKill = setTimeout(() => killProcessTree("SIGKILL"), 1_000);
         forceKill.unref();
       }, options.timeoutMs);
       timer?.unref();

@@ -1,4 +1,4 @@
-import { mkdir, open, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, open, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { ReviewSession } from "../../core/src/domain/review-session.js";
@@ -18,16 +18,6 @@ async function acquireLock(path: string): Promise<Awaited<ReturnType<typeof open
       return await open(path, "wx", 0o600);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-      try {
-        const metadata = await stat(path);
-        if (Date.now() - metadata.mtimeMs > 30_000) {
-          await rm(path, { force: true });
-          continue;
-        }
-      } catch (statError) {
-        if ((statError as NodeJS.ErrnoException).code === "ENOENT") continue;
-        throw statError;
-      }
       if (Date.now() >= deadline) {
         throw new Error(`Timed out waiting for review state lock: ${path}`);
       }

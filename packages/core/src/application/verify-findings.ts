@@ -69,7 +69,8 @@ export async function verifyFindings(input: {
       continue;
     }
     if (!validLocation(finding, input.lineCounts)) {
-      findings.push({ ...finding, state: "dismissed_false_positive" });
+      blocked = true;
+      findings.push(finding);
       failures.push(`${finding.fingerprint}: deterministic validation failed`);
       continue;
     }
