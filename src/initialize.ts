@@ -107,7 +107,7 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"${nodeCache}
-${projectBootstrap}      - run: npm install --global @duthaho/workflow-hub@0.1.0
+${projectBootstrap}      - run: npm install --global github:duthaho/workflow-hub#v0.1.0
       - run: workflow-hub verify
       - run: workflow-hub doctor --ci
 `;
