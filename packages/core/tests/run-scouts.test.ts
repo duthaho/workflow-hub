@@ -42,7 +42,7 @@ describe("parallel scouts", () => {
       ...request,
       assignments: [
         { role: "correctness-scout", provider: provider("a", "ok", counter), required: true },
-        { role: "security-scout", provider: provider("b", "failed", counter), required: true },
+        { role: "security-scout", provider: provider("b", "failed", counter), required: false },
         { role: "test-gap-scout", provider: provider("c", "ok", counter), required: false },
       ],
       concurrency: 2,
@@ -53,11 +53,11 @@ describe("parallel scouts", () => {
     expect(result.failures).toHaveLength(1);
   });
 
-  it("blocks when every required scout fails", async () => {
+  it("blocks when any required scout fails", async () => {
     const result = await runScouts({
       ...request,
       assignments: [
-        { role: "correctness-scout", provider: provider("a", "failed"), required: true },
+        { role: "correctness-scout", provider: provider("a", "ok"), required: true },
         { role: "security-scout", provider: provider("b", "failed"), required: true },
       ],
       concurrency: 2,

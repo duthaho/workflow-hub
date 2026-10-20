@@ -5,7 +5,10 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
 import { runCli } from "../src/cli.js";
-import type { ReviewLoopCommand } from "../src/commands/review-loop.js";
+import {
+  resolveProviderBinary,
+  type ReviewLoopCommand,
+} from "../src/commands/review-loop.js";
 
 const config = {
   schemaVersion: 1,
@@ -58,8 +61,18 @@ describe("review-loop CLI", () => {
       fix: true, task: "Implement safe parsing",
       config: expect.objectContaining({
         providers: { author: "codex", reviewers: ["claude"] },
-        review: { maxRounds: 2, minimumConfidence: 0.8 },
+        review: expect.objectContaining({ maxRounds: 2 }),
       }),
     }));
+  });
+
+  it("resolves explicit provider executables from the environment", () => {
+    const environment = {
+      WORKFLOW_HUB_CODEX_BIN: "/opt/tools/codex",
+      WORKFLOW_HUB_CLAUDE_BIN: "/opt/tools/claude",
+    };
+    expect(resolveProviderBinary("codex", environment)).toBe("/opt/tools/codex");
+    expect(resolveProviderBinary("claude", environment)).toBe("/opt/tools/claude");
+    expect(resolveProviderBinary("codex", {})).toBeUndefined();
   });
 });

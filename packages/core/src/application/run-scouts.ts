@@ -97,12 +97,11 @@ export async function runScouts(input: {
     }
   });
 
-  const required = input.assignments.filter((assignment) => assignment.required);
   const failedRequired = failures.filter((failure) => failure.required);
   return {
     results,
     failures,
     findings: results.flatMap((result) => result.findings),
-    blocked: required.length > 0 && failedRequired.length === required.length,
+    blocked: failedRequired.length > 0,
   };
 }

@@ -18,6 +18,7 @@ export interface RoleProviderOptions {
   cwd: string;
   executor?: ProviderProcessExecutor;
   allowFix?: boolean;
+  binary?: string;
 }
 
 export abstract class RoleProvider implements AgentProvider {
@@ -26,11 +27,13 @@ export abstract class RoleProvider implements AgentProvider {
   protected readonly cwd: string;
   protected readonly executor: ProviderProcessExecutor;
   protected readonly allowFix: boolean;
+  protected readonly binary: string | undefined;
 
   constructor(options: RoleProviderOptions) {
     this.cwd = options.cwd;
     this.executor = options.executor ?? defaultProviderProcessExecutor;
     this.allowFix = options.allowFix ?? false;
+    this.binary = options.binary;
   }
 
   protected abstract invocation(input: {

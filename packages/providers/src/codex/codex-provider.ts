@@ -11,7 +11,7 @@ export class CodexProvider extends RoleProvider {
     outputPath: string;
   }) {
     return {
-      command: "codex",
+      command: this.binary ?? "codex",
       args: [
         "exec",
         "--sandbox", input.request.role === "fix-agent" ? "workspace-write" : "read-only",

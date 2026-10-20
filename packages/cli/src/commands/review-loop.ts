@@ -47,10 +47,23 @@ class GitRepository implements RepositoryPort {
   }
 }
 
+export function resolveProviderBinary(
+  name: "claude" | "codex",
+  environment: Readonly<Record<string, string | undefined>> = process.env,
+): string | undefined {
+  return environment[name === "claude" ? "WORKFLOW_HUB_CLAUDE_BIN" : "WORKFLOW_HUB_CODEX_BIN"];
+}
+
 function provider(name: "claude" | "codex", cwd: string, allowFix = false): AgentProvider {
+  const binary = resolveProviderBinary(name);
+  const options = {
+    cwd,
+    allowFix,
+    ...(binary === undefined ? {} : { binary }),
+  };
   return name === "claude"
-    ? new ClaudeProvider({ cwd, allowFix })
-    : new CodexProvider({ cwd, allowFix });
+    ? new ClaudeProvider(options)
+    : new CodexProvider(options);
 }
 
 export const runReviewLoopCommand: ReviewLoopCommand = async (input) => {

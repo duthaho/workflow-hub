@@ -107,4 +107,39 @@ describe("local review orchestration", () => {
     expect(result.outcome).toBe("blocked");
     expect(result.session.blockedReason).toMatch(/security scout/i);
   });
+
+  it("persists required scout failure evidence before blocking", async () => {
+    const repoState = { head: "h1" };
+    const failedSecurity: AgentProvider = {
+      name: "codex",
+      async runRole(request) {
+        return {
+          status: "failed",
+          role: request.role,
+          provider: "codex",
+          summary: "unavailable",
+          findings: [],
+          verifications: [],
+          error: "codex executable was not found",
+        };
+      },
+    };
+    const result = await runLocalReview({
+      sessionId: "session-4", baseRef: "origin/main", maxRounds: 3,
+      highRiskPaths: [], depth: "quick", fix: false,
+      repository: repository(repoState), verification, stateStore: new MemoryStore(),
+      scouts: [
+        { role: "correctness-scout", provider: provider("codex", "scout", repoState), required: true },
+        { role: "security-scout", provider: failedSecurity, required: true },
+      ],
+      verifiers: [provider("claude", "verifier")],
+      concurrency: 2, timeoutMs: 100, quorum: 1, minimumConfidence: 0.8,
+      now: () => "2026-10-20T00:00:00.000Z",
+    });
+    expect(result.outcome).toBe("blocked");
+    expect(result.session.rounds[0]?.scoutFailures).toEqual([
+      "codex/security-scout: codex executable was not found",
+    ]);
+    expect(result.session.blockedReason).toContain("codex executable was not found");
+  });
 });

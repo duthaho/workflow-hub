@@ -13,7 +13,7 @@ export class ClaudeProvider extends RoleProvider {
   }) {
     const fix = input.request.role === "fix-agent";
     return {
-      command: "claude",
+      command: this.binary ?? "claude",
       args: [
         "--print",
         "--restricted",

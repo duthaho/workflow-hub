@@ -184,7 +184,23 @@ export async function runLocalReview(options: RunLocalReviewOptions): Promise<Lo
       timeoutMs: options.timeoutMs,
     });
     if (scouts.blocked) {
-      session = transitionReviewSession(session, "blocked", now(), "All required review scouts failed");
+      const failureMessages = scouts.failures
+        .filter((failure) => failure.required)
+        .map((failure) => `${failure.provider}/${failure.role}: ${failure.reason}`);
+      const rounds = [...session.rounds];
+      const currentRound = rounds.at(-1)!;
+      rounds[rounds.length - 1] = {
+        ...currentRound,
+        completedAt: now(),
+        scoutFailures: failureMessages,
+      };
+      session = { ...session, rounds, updatedAt: now() };
+      session = transitionReviewSession(
+        session,
+        "blocked",
+        now(),
+        `Required review scout failed: ${failureMessages.join("; ")}`,
+      );
       session = await persist(options.stateStore, session);
       return { outcome: "blocked", session, risk };
     }
