@@ -1,5 +1,6 @@
 export * from "./application/deduplicate-findings.js";
 export * from "./application/run-scouts.js";
+export * from "./application/verify-findings.js";
 export * from "./contracts.js";
 export * from "./domain/agent-role.js";
 export * from "./domain/finding.js";

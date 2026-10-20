@@ -1,5 +1,9 @@
 import type { AgentRole } from "../domain/agent-role.js";
-import type { CandidateFinding, FindingClassification } from "../domain/finding.js";
+import type {
+  CandidateFinding,
+  FindingClassification,
+  ReviewFinding,
+} from "../domain/finding.js";
 
 export interface AgentRoleRequest {
   sessionId: string;
@@ -11,14 +15,16 @@ export interface AgentRoleRequest {
   diff: string;
   readOnly: boolean;
   candidates?: CandidateFinding[];
+  finding?: ReviewFinding;
   task?: string;
 }
 
 export interface FindingVerificationResult {
   fingerprint: string;
+  supported: boolean;
   classification: FindingClassification;
   confidence: number;
-  rationale: string;
+  reason: string;
 }
 
 export interface AgentRoleResult {
