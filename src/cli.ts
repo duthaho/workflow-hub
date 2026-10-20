@@ -4,10 +4,14 @@ import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { ProviderNameSchema, ProjectProfileSchema } from "./contracts.js";
-import { loadWorkflowConfig } from "./config.js";
+import {
+  loadWorkflowConfig,
+  loadWorkflowConfigFromRef,
+} from "./config.js";
 import { initializeProject } from "./initialize.js";
 import { runReview, type ReviewKind } from "./review.js";
 import {
+  defaultCommandRunner,
   runVerification,
   type CommandRunner,
 } from "./verification.js";
@@ -106,18 +110,19 @@ async function handleReview(
     throw new Error("review requires --kind correctness|security");
   }
   const kind: ReviewKind = kindValue;
-  const config = await loadWorkflowConfig(context.cwd);
+  const baseRef = optionValue(args, "--base") ?? "origin/main";
+  const runner = context.runner ?? defaultCommandRunner;
+  const config = await loadWorkflowConfigFromRef(context.cwd, baseRef, runner);
   const provider = ProviderNameSchema.parse(
     optionValue(args, "--provider") ?? config.providers.reviewers[0],
   );
-  const baseRef = optionValue(args, "--base") ?? "origin/main";
   const report = await runReview({
     cwd: context.cwd,
     config,
     provider,
     kind,
     baseRef,
-    ...(context.runner ? { runner: context.runner } : {}),
+    runner,
   });
   const actionable = report.findings.filter(
     (finding) =>

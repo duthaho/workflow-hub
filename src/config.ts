@@ -5,17 +5,9 @@ import {
   WorkflowConfigSchema,
   type WorkflowConfig,
 } from "./contracts.js";
+import type { CommandRunner } from "./verification.js";
 
-export async function loadWorkflowConfig(cwd: string): Promise<WorkflowConfig> {
-  const path = join(cwd, "workflow-hub.json");
-  let raw: string;
-
-  try {
-    raw = await readFile(path, "utf8");
-  } catch (error) {
-    throw new Error(`Unable to read ${path}`, { cause: error });
-  }
-
+function parseWorkflowConfig(raw: string): WorkflowConfig {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
@@ -34,4 +26,35 @@ export async function loadWorkflowConfig(cwd: string): Promise<WorkflowConfig> {
   }
 
   return result.data;
+}
+
+export async function loadWorkflowConfig(cwd: string): Promise<WorkflowConfig> {
+  const path = join(cwd, "workflow-hub.json");
+  let raw: string;
+
+  try {
+    raw = await readFile(path, "utf8");
+  } catch (error) {
+    throw new Error(`Unable to read ${path}`, { cause: error });
+  }
+
+  return parseWorkflowConfig(raw);
+}
+
+export async function loadWorkflowConfigFromRef(
+  cwd: string,
+  ref: string,
+  runner: CommandRunner,
+): Promise<WorkflowConfig> {
+  const result = await runner(
+    "git",
+    ["show", `${ref}:workflow-hub.json`],
+    { cwd, shell: false, inheritStdio: false },
+  );
+  if (result.exitCode !== 0) {
+    throw new Error(
+      `Unable to read trusted workflow-hub.json from ${ref}: ${result.stderr.trim()}`,
+    );
+  }
+  return parseWorkflowConfig(result.stdout);
 }

@@ -24,11 +24,6 @@
   "bin": {
     "workflow-hub": "./dist/cli.js"
   },
-  "files": [
-    "dist",
-    "schemas",
-    "templates"
-  ],
   "engines": {
     "node": ">=22"
   },
