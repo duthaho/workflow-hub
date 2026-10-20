@@ -96,6 +96,12 @@ describe("review-loop CLI", () => {
     })).not.toBe(first);
     expect(buildReviewInputFingerprint({
       config,
+      depth: "standard",
+      fix: false,
+      task: "task one",
+    })).toBe(first);
+    expect(buildReviewInputFingerprint({
+      config,
       depth: "quick",
       fix: true,
       task: "task one",

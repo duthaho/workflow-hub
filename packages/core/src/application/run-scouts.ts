@@ -70,6 +70,7 @@ export async function runScouts(input: {
               changedFiles: input.changedFiles,
               diff: input.diff,
               readOnly: true,
+              timeoutMs: input.timeoutMs,
             }),
             input.timeoutMs,
           );

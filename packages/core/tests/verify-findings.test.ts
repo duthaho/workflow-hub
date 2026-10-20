@@ -46,7 +46,7 @@ describe("finding verification", () => {
       findings: [finding],
       verifiers: [sameProvider, independent],
       quorum: 1,
-      minimumConfidence: 0.8,
+      minimumConfidence: 0.8, timeoutMs: 100,
       lineCounts: { "src/run.ts": 10 },
       context: { sessionId: "s", round: 1, baseSha: "base", headSha: "head", changedFiles: ["src/run.ts"], diff: "diff" },
     });
@@ -60,7 +60,7 @@ describe("finding verification", () => {
       findings: [finding],
       verifiers: [verifier("claude", false, "unsupported")],
       quorum: 1,
-      minimumConfidence: 0.8,
+      minimumConfidence: 0.8, timeoutMs: 100,
       lineCounts: { "src/run.ts": 10 },
       context: { sessionId: "s", round: 1, baseSha: "base", headSha: "head", changedFiles: ["src/run.ts"], diff: "diff" },
     });
@@ -71,7 +71,7 @@ describe("finding verification", () => {
     for (const evidence of [[], [{ role: "security-scout" as const, provider: "codex", text: "   " }]]) {
       const result = await verifyFindings({
         findings: [{ ...finding, evidence }],
-        verifiers: [verifier("claude", true)], quorum: 1, minimumConfidence: 0.8,
+        verifiers: [verifier("claude", true)], quorum: 1, minimumConfidence: 0.8, timeoutMs: 100,
         lineCounts: { "src/run.ts": 10 },
         context: { sessionId: "s", round: 1, baseSha: "base", headSha: "head", changedFiles: ["src/run.ts"], diff: "diff" },
       });
@@ -102,10 +102,24 @@ describe("finding verification", () => {
     };
     const result = await verifyFindings({
       findings: [finding], verifiers: [duplicateVerifier, failedVerifier],
-      quorum: 2, minimumConfidence: 0.8, lineCounts: { "src/run.ts": 10 },
+      quorum: 2, minimumConfidence: 0.8, timeoutMs: 100, lineCounts: { "src/run.ts": 10 },
       context: { sessionId: "s", round: 1, baseSha: "base", headSha: "head", changedFiles: ["src/run.ts"], diff: "diff" },
     });
     expect(result.blocked).toBe(true);
+  });
+
+  it("times out a verifier that never settles", async () => {
+    const hanging: AgentProvider = {
+      name: "claude",
+      runRole: async () => new Promise(() => undefined),
+    };
+    const result = await verifyFindings({
+      findings: [finding], verifiers: [hanging], quorum: 1,
+      minimumConfidence: 0.8, timeoutMs: 5, lineCounts: { "src/run.ts": 10 },
+      context: { sessionId: "s", round: 1, baseSha: "base", headSha: "head", changedFiles: ["src/run.ts"], diff: "diff" },
+    });
+    expect(result.blocked).toBe(true);
+    expect(result.failures.join(" ")).toMatch(/failed|quorum/i);
   });
 
   it("fails closed when no independent verifier can produce a verdict", async () => {
@@ -113,7 +127,7 @@ describe("finding verification", () => {
       findings: [finding],
       verifiers: [verifier("codex", true)],
       quorum: 1,
-      minimumConfidence: 0.8,
+      minimumConfidence: 0.8, timeoutMs: 100,
       lineCounts: { "src/run.ts": 10 },
       context: { sessionId: "s", round: 1, baseSha: "base", headSha: "head", changedFiles: ["src/run.ts"], diff: "diff" },
     });

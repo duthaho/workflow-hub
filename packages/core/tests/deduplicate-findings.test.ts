@@ -49,6 +49,15 @@ describe("semantic finding identity", () => {
     ]);
   });
 
+  it("preserves the highest severity regardless of duplicate order", () => {
+    for (const candidates of [
+      [candidate({ severity: "critical" }), candidate({ severity: "low" })],
+      [candidate({ severity: "low" }), candidate({ severity: "critical" })],
+    ]) {
+      expect(deduplicateFindings(candidates, { "src/tasks.ts": 100 })[0]?.severity).toBe("critical");
+    }
+  });
+
   it("rejects paths outside the repository and impossible line ranges", () => {
     expect(() => deduplicateFindings([
       candidate({ location: { path: "../secret", startLine: 1, endLine: 1 } }),

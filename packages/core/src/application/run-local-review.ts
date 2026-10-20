@@ -56,6 +56,16 @@ function outcomeForState(state: ReviewSession["state"]): LocalReviewOutcome | un
   return undefined;
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, role: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${role} timed out after ${timeoutMs}ms`)), timeoutMs);
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (error: unknown) => { clearTimeout(timer); reject(error); },
+    );
+  });
+}
+
 function selectScouts(
   assignments: ScoutAssignment[],
   depth: RunLocalReviewOptions["depth"],
@@ -149,7 +159,7 @@ export async function runLocalReview(options: RunLocalReviewOptions): Promise<Lo
       const fixTask = initialTask
         ? options.task
         : `Fix these verified findings: ${JSON.stringify(open)}`;
-      await options.fixProvider.runRole({
+      await withTimeout(options.fixProvider.runRole({
         sessionId: session.id,
         round: session.rounds.length,
         role: "fix-agent",
@@ -158,8 +168,9 @@ export async function runLocalReview(options: RunLocalReviewOptions): Promise<Lo
         changedFiles: await options.repository.changedFiles(session.mergeBaseSha, headSha),
         diff: await options.repository.diff(session.mergeBaseSha, headSha),
         readOnly: false,
+        timeoutMs: options.timeoutMs,
         ...(fixTask === undefined ? {} : { task: fixTask }),
-      });
+      }), options.timeoutMs, "Fix agent");
     } catch (error) {
       session = transitionReviewSession(
         session, "blocked", now(),
@@ -273,6 +284,7 @@ export async function runLocalReview(options: RunLocalReviewOptions): Promise<Lo
       verifiers: options.verifiers,
       quorum: options.quorum,
       minimumConfidence: options.minimumConfidence,
+      timeoutMs: options.timeoutMs,
       lineCounts,
       context: { sessionId: session.id, round: plan.number, baseSha: plan.baseSha, headSha, changedFiles, diff },
     });
@@ -282,11 +294,56 @@ export async function runLocalReview(options: RunLocalReviewOptions): Promise<Lo
       return { outcome: "blocked", session, risk };
     }
 
+    let currentFindings = verified.findings;
+    const currentFingerprints = new Set(currentFindings.map((finding) => finding.fingerprint));
+    const missingPrevious = previousFindings.filter(
+      (finding) => finding.state === "open" && !currentFingerprints.has(finding.fingerprint),
+    );
+    if (missingPrevious.length > 0) {
+      const fullChangedFiles = await options.repository.changedFiles(session.mergeBaseSha, headSha);
+      const fullDiff = await options.repository.diff(session.mergeBaseSha, headSha);
+      const resolutionLineCounts = { ...lineCounts };
+      for (const finding of missingPrevious) {
+        const path = finding.location.path;
+        if (resolutionLineCounts[path] !== undefined) continue;
+        const count = await options.repository.fileLineCount(path, headSha);
+        if (count !== undefined) resolutionLineCounts[path] = count;
+      }
+      const resolution = await verifyFindings({
+        findings: missingPrevious,
+        verifiers: options.verifiers,
+        quorum: options.quorum,
+        minimumConfidence: options.minimumConfidence,
+        timeoutMs: options.timeoutMs,
+        lineCounts: resolutionLineCounts,
+        context: {
+          sessionId: session.id,
+          round: plan.number,
+          baseSha: session.mergeBaseSha,
+          headSha,
+          changedFiles: fullChangedFiles,
+          diff: fullDiff,
+        },
+      });
+      if (resolution.blocked) {
+        session = transitionReviewSession(session, "blocked", now(), resolution.failures.join("; "));
+        session = await persist(options.stateStore, session);
+        return { outcome: "blocked", session, risk };
+      }
+      currentFindings = [
+        ...currentFindings,
+        ...resolution.findings.map((finding) =>
+          finding.state === "dismissed_false_positive"
+            ? { ...finding, state: "fixed" as const }
+            : finding
+        ),
+      ];
+    }
+
     const previousHeadSha = session.rounds.at(-2)?.headSha;
     const reconciled = reconcileRound({
       previousFindings,
-      currentFindings: verified.findings,
-      reviewedPaths: changedFiles,
+      currentFindings,
       roundNumber: plan.number,
       maxRounds: session.maxRounds,
       ...(previousHeadSha === undefined ? {} : { previousHeadSha }),

@@ -37,6 +37,15 @@ function evidenceKey(evidence: CandidateFinding["evidence"][number]): string {
   return `${evidence.provider}:${evidence.role}:${normalizeText(evidence.text)}`;
 }
 
+const severityRank = { low: 0, medium: 1, high: 2, critical: 3 } as const;
+
+function highestSeverity(
+  left: CandidateFinding["severity"] | undefined,
+  right: CandidateFinding["severity"],
+): CandidateFinding["severity"] {
+  return left !== undefined && severityRank[left] >= severityRank[right] ? left : right;
+}
+
 export function deduplicateFindings(
   candidates: CandidateFinding[],
   lineCounts: Record<string, number>,
@@ -76,6 +85,7 @@ export function deduplicateFindings(
       evidence: uniqueEvidence,
       supportingAgents,
       confidence: Math.max(existing?.confidence ?? 0, candidate.confidence),
+      severity: highestSeverity(existing?.severity, candidate.severity),
     });
   }
 

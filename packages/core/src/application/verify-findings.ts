@@ -28,11 +28,22 @@ function validEvidence(finding: ReviewFinding): boolean {
   );
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Verifier timed out after ${timeoutMs}ms`)), timeoutMs);
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (error: unknown) => { clearTimeout(timer); reject(error); },
+    );
+  });
+}
+
 export async function verifyFindings(input: {
   findings: ReviewFinding[];
   verifiers: AgentProvider[];
   quorum: number;
   minimumConfidence: number;
+  timeoutMs: number;
   lineCounts: Record<string, number>;
   context: {
     sessionId: string;
@@ -82,12 +93,13 @@ export async function verifyFindings(input: {
     }
 
     const settled = await Promise.allSettled(independent.map((provider) =>
-      provider.runRole({
+      withTimeout(provider.runRole({
         ...input.context,
         role: "finding-verifier",
         readOnly: true,
+        timeoutMs: input.timeoutMs,
         finding,
-      }),
+      }), input.timeoutMs),
     ));
     const verifications: FindingVerificationResult[] = [];
     settled.forEach((outcome, index) => {

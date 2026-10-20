@@ -37,10 +37,10 @@ describe("review convergence", () => {
     expect(planReviewRound(session(two), "h3")).toMatchObject({ baseSha: "h2", scope: "incremental", number: 3 });
   });
 
-  it("suppresses persistent fingerprints, marks disappeared findings fixed, and reopens fixed findings", () => {
+  it("suppresses persistent fingerprints, preserves unresolved findings, and reopens fixed findings", () => {
     const result = reconcileRound({
       previousFindings: [finding("persist"), finding("gone"), finding("reopen", "fixed")],
-      currentFindings: [finding("persist"), finding("reopen")],
+      currentFindings: [finding("persist"), finding("reopen"), finding("gone", "fixed")],
       roundNumber: 2,
       maxRounds: 3,
       previousHeadSha: "h1",
@@ -65,7 +65,6 @@ describe("review convergence", () => {
     const result = reconcileRound({
       previousFindings: [finding("outside")],
       currentFindings: [],
-      reviewedPaths: ["src/other.ts"],
       roundNumber: 3,
       maxRounds: 4,
       previousHeadSha: "h2",

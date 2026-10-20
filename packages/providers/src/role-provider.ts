@@ -61,6 +61,7 @@ export abstract class RoleProvider implements AgentProvider {
       const process = await this.executor.run(invocation.command, invocation.args, {
         cwd: this.cwd,
         stdin: invocation.stdin,
+        ...(request.timeoutMs === undefined ? {} : { timeoutMs: request.timeoutMs }),
       });
       if (process.exitCode !== 0) {
         throw new Error(`${this.name} ${request.role} failed with exit code ${process.exitCode}: ${process.stderr.trim()}`);

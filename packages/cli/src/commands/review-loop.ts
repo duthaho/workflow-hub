@@ -35,7 +35,6 @@ export function buildReviewInputFingerprint(input: Pick<
   const identity = {
     taskDigest,
     depth: input.depth,
-    fix: input.fix,
     author: input.config.providers.author,
     reviewers: input.config.providers.reviewers,
     verifyCommand: input.config.commands.verify,

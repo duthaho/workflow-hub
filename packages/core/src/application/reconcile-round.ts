@@ -15,7 +15,6 @@ function openFingerprints(findings: ReviewFinding[]): string[] {
 export function reconcileRound(input: {
   previousFindings: ReviewFinding[];
   currentFindings: ReviewFinding[];
-  reviewedPaths?: string[];
   roundNumber: number;
   maxRounds: number;
   previousHeadSha?: string;
@@ -32,8 +31,7 @@ export function reconcileRound(input: {
 
   for (const prior of input.previousFindings) {
     if (prior.state === "open" && !current.has(prior.fingerprint)) {
-      const withinScope = input.reviewedPaths === undefined || input.reviewedPaths.includes(prior.location.path);
-      findings.push(withinScope ? { ...prior, state: "fixed" } : prior);
+      findings.push(prior);
     } else if (!current.has(prior.fingerprint) && prior.state !== "open") {
       findings.push(prior);
     }

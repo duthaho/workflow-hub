@@ -17,6 +17,7 @@ export interface AgentRoleRequest {
   candidates?: CandidateFinding[];
   finding?: ReviewFinding;
   task?: string;
+  timeoutMs?: number;
 }
 
 export interface FindingVerificationResult {

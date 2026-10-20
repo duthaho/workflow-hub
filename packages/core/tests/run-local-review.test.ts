@@ -32,7 +32,8 @@ function provider(name: string, role: "scout" | "verifier" | "fix", repository?:
         return { status: "completed", role: request.role, provider: name, summary: "fixed", findings: [], verifications: [] };
       }
       if (role === "verifier") {
-        return { status: "completed", role: request.role, provider: name, summary: "verified", findings: [], verifications: [{ fingerprint: request.finding?.fingerprint ?? "", supported: true, classification: "introduced", confidence: 0.99, reason: "confirmed" }] };
+        const supported = repository?.head !== "h2";
+        return { status: "completed", role: request.role, provider: name, summary: "verified", findings: [], verifications: [{ fingerprint: request.finding?.fingerprint ?? "", supported, classification: supported ? "introduced" : "unsupported", confidence: 0.99, reason: supported ? "confirmed" : "resolved" }] };
       }
       return { status: "completed", role: request.role, provider: name, summary: "scouted", findings: repository?.head === "h1" ? [candidate] : [], verifications: [] };
     },
@@ -65,7 +66,7 @@ describe("local review orchestration", () => {
         { role: "correctness-scout", provider: provider("codex", "scout", repoState), required: true },
         { role: "security-scout", provider: provider("codex", "scout", repoState), required: true },
       ],
-      verifiers: [provider("claude", "verifier")], fixProvider: provider("author", "fix", repoState),
+      verifiers: [provider("claude", "verifier", repoState)], fixProvider: provider("author", "fix", repoState),
       concurrency: 2, timeoutMs: 100, quorum: 1, minimumConfidence: 0.8,
       now: () => "2026-10-20T00:00:00.000Z",
     });
