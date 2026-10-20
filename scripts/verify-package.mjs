@@ -1,4 +1,4 @@
-import { access } from "node:fs/promises";
+import { access, readdir } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
@@ -17,6 +17,11 @@ for (const name of modules) {
   const path = `dist/${name}.js`;
   await access(path);
   await import(pathToFileURL(path).href);
+}
+
+const builtFiles = await readdir("dist/packages", { recursive: true });
+if (builtFiles.some((path) => path.split(/[\\/]/).includes("tests"))) {
+  throw new Error("Published build must not contain workspace tests");
 }
 
 await new Promise((resolve, reject) => {
