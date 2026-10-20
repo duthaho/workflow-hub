@@ -42,6 +42,10 @@ export interface ReviewFinding {
   remediation?: string;
 }
 
+export function isActionableReviewFinding(finding: ReviewFinding): boolean {
+  return finding.state === "open" && finding.severity !== "low";
+}
+
 export type CandidateFinding = Omit<
   ReviewFinding,
   "fingerprint" | "state" | "supportingAgents"

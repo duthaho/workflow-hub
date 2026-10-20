@@ -67,6 +67,47 @@ describe("finding verification", () => {
     expect(result.findings[0]?.state).toBe("dismissed_false_positive");
   });
 
+  it("fails closed when a finding has no nonblank evidence", async () => {
+    for (const evidence of [[], [{ role: "security-scout" as const, provider: "codex", text: "   " }]]) {
+      const result = await verifyFindings({
+        findings: [{ ...finding, evidence }],
+        verifiers: [verifier("claude", true)], quorum: 1, minimumConfidence: 0.8,
+        lineCounts: { "src/run.ts": 10 },
+        context: { sessionId: "s", round: 1, baseSha: "base", headSha: "head", changedFiles: ["src/run.ts"], diff: "diff" },
+      });
+      expect(result.blocked).toBe(true);
+      expect(result.findings[0]?.state).toBe("candidate");
+    }
+  });
+
+  it("counts at most one vote from each verifier invocation", async () => {
+    const duplicateVerifier: AgentProvider = {
+      ...verifier("claude", true),
+      async runRole(request) {
+        const vote = {
+          fingerprint: request.finding?.fingerprint ?? "", supported: true,
+          confidence: 0.95, classification: "introduced" as const, reason: "confirmed",
+        };
+        return {
+          status: "completed", role: request.role, provider: "claude",
+          summary: "duplicated", findings: [], verifications: [vote, vote],
+        };
+      },
+    };
+    const failedVerifier: AgentProvider = {
+      name: "gemini",
+      async runRole(request) {
+        return { status: "failed", role: request.role, provider: "gemini", summary: "failed", findings: [], verifications: [], error: "offline" };
+      },
+    };
+    const result = await verifyFindings({
+      findings: [finding], verifiers: [duplicateVerifier, failedVerifier],
+      quorum: 2, minimumConfidence: 0.8, lineCounts: { "src/run.ts": 10 },
+      context: { sessionId: "s", round: 1, baseSha: "base", headSha: "head", changedFiles: ["src/run.ts"], diff: "diff" },
+    });
+    expect(result.blocked).toBe(true);
+  });
+
   it("fails closed when no independent verifier can produce a verdict", async () => {
     const result = await verifyFindings({
       findings: [finding],

@@ -23,7 +23,7 @@ function finding(fingerprint: string, state: ReviewFinding["state"] = "open"): R
 function session(rounds: ReviewSession["rounds"]): ReviewSession {
   return {
     id: "s", version: 0, maxRounds: 3, state: "reviewing", baseRef: "origin/main",
-    mergeBaseSha: "merge", headSha: "head", rounds, knownFingerprints: [],
+    mergeBaseSha: "merge", headSha: "head", inputFingerprint: "inputs", rounds, knownFingerprints: [],
     createdAt: "now", updatedAt: "now",
   };
 }
@@ -48,6 +48,17 @@ describe("review convergence", () => {
     });
     expect(result.emittedFindings.map((item) => item.fingerprint)).toEqual(["reopen"]);
     expect(result.findings.find((item) => item.fingerprint === "gone")?.state).toBe("fixed");
+  });
+
+  it("preserves low-severity findings without blocking convergence", () => {
+    const low = { ...finding("low"), severity: "low" as const };
+    const result = reconcileRound({
+      previousFindings: [], currentFindings: [low], roundNumber: 1, maxRounds: 3,
+      currentHeadSha: "head",
+    });
+    expect(result.outcome).toBe("passed");
+    expect(result.findings).toEqual([expect.objectContaining({ fingerprint: "low", state: "open" })]);
+    expect(result.emittedFindings).toHaveLength(1);
   });
 
   it("carries unresolved findings that are outside an incremental review scope", () => {

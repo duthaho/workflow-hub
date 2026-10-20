@@ -13,7 +13,7 @@ describe("file review state store", () => {
     const store = new FileReviewStateStore(cwd);
     const session = createReviewSession({
       id: "session-1", baseRef: "origin/main", mergeBaseSha: "base",
-      headSha: "head", maxRounds: 3, now: "2026-10-20T00:00:00.000Z",
+      headSha: "head", maxRounds: 3, inputFingerprint: "inputs", now: "2026-10-20T00:00:00.000Z",
     });
     expect(await store.save(session, 0)).toBe(1);
     expect(await store.load("session-1")).toMatchObject({ id: "session-1", version: 1 });
@@ -25,7 +25,7 @@ describe("file review state store", () => {
     const store = new FileReviewStateStore(cwd);
     const session = createReviewSession({
       id: "locked", baseRef: "origin/main", mergeBaseSha: "base",
-      headSha: "head", maxRounds: 3, now: "2026-10-20T00:00:00.000Z",
+      headSha: "head", maxRounds: 3, inputFingerprint: "inputs", now: "2026-10-20T00:00:00.000Z",
     });
     await mkdir(store.directory, { recursive: true });
     const lock = join(store.directory, "locked.json.lock");
@@ -46,7 +46,7 @@ describe("file review state store", () => {
     const store = new FileReviewStateStore(cwd);
     const session = createReviewSession({
       id: "concurrent", baseRef: "origin/main", mergeBaseSha: "base",
-      headSha: "head", maxRounds: 3, now: "2026-10-20T00:00:00.000Z",
+      headSha: "head", maxRounds: 3, inputFingerprint: "inputs", now: "2026-10-20T00:00:00.000Z",
     });
     const outcomes = await Promise.allSettled([
       store.save(session, 0),

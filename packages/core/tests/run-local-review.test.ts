@@ -58,7 +58,7 @@ describe("local review orchestration", () => {
     const repoState = { head: "h1" };
     const store = new MemoryStore();
     const result = await runLocalReview({
-      sessionId: "session-1", baseRef: "origin/main", maxRounds: 3,
+      sessionId: "session-1", baseRef: "origin/main", maxRounds: 3, inputFingerprint: "inputs",
       highRiskPaths: [], depth: "standard", fix: true,
       repository: repository(repoState), verification, stateStore: store,
       scouts: [
@@ -96,7 +96,7 @@ describe("local review orchestration", () => {
       },
     };
     const result = await runLocalReview({
-      sessionId: "session-task", baseRef: "origin/main", maxRounds: 3,
+      sessionId: "session-task", baseRef: "origin/main", maxRounds: 3, inputFingerprint: "inputs",
       highRiskPaths: [], depth: "quick", fix: true, task: "Implement requested feature",
       repository: repository(repoState),
       verification: { async verify() { events.push("verify"); return { status: "passed", checks: [], durationMs: 1 }; } },
@@ -117,7 +117,7 @@ describe("local review orchestration", () => {
   it("escalates unresolved findings at maxRounds", async () => {
     const repoState = { head: "h1" };
     const result = await runLocalReview({
-      sessionId: "session-2", baseRef: "origin/main", maxRounds: 1,
+      sessionId: "session-2", baseRef: "origin/main", maxRounds: 1, inputFingerprint: "inputs",
       highRiskPaths: [], depth: "standard", fix: false,
       repository: repository(repoState), verification, stateStore: new MemoryStore(),
       scouts: [
@@ -143,12 +143,13 @@ describe("local review orchestration", () => {
       store.value = {
         id: `verifying-${rounds.length}`, version: 2, state: "verifying",
         baseRef: "origin/main", mergeBaseSha: "base", headSha: "h1", maxRounds: 3,
+        inputFingerprint: "inputs",
         rounds, knownFingerprints: [], createdAt: "now", updatedAt: "now",
       };
       const verify = vi.fn(async () => ({ status: "passed" as const, checks: [], durationMs: 1 }));
       const cleanScout = provider("codex", "scout", { head: "h2" });
       const result = await runLocalReview({
-        sessionId: store.value.id, baseRef: "origin/main", maxRounds: 3,
+        sessionId: store.value.id, baseRef: "origin/main", maxRounds: 3, inputFingerprint: "inputs",
         highRiskPaths: [], depth: "quick", fix: false,
         repository: repository({ head: "h1" }), verification: { verify }, stateStore: store,
         scouts: [
@@ -164,16 +165,56 @@ describe("local review orchestration", () => {
     }
   });
 
+  it("reverifies and rereviews a changed snapshot when resuming", async () => {
+    const events: string[] = [];
+    const session = {
+      id: "changed-review", version: 1, state: "reviewing" as const,
+      baseRef: "origin/main", mergeBaseSha: "base", headSha: "h1", maxRounds: 3,
+        inputFingerprint: "inputs",
+      knownFingerprints: [],
+      rounds: [{
+        number: 1, baseSha: "base", headSha: "h1", scope: "merge-base" as const,
+        changedFiles: ["app.ts"], findings: [], scoutFailures: [], emittedFingerprints: [],
+        startedAt: "2026-10-20T00:00:00.000Z", completedAt: "2026-10-20T00:00:00.000Z",
+      }],
+      createdAt: "2026-10-20T00:00:00.000Z", updatedAt: "2026-10-20T00:00:00.000Z",
+    };
+    const store = new MemoryStore();
+    store.value = session;
+    const result = await runLocalReview({
+      sessionId: "changed-review", baseRef: "origin/main", maxRounds: 3, inputFingerprint: "inputs",
+      highRiskPaths: [], depth: "standard", fix: false,
+      repository: repository({ head: "h2" }),
+      stateStore: store,
+      verification: { verify: async () => { events.push("verify"); return { status: "passed", checks: [], durationMs: 1 }; } },
+      scouts: [
+        { role: "correctness-scout", provider: {
+          name: "codex",
+          async runRole(request: Parameters<AgentProvider["runRole"]>[0]) {
+            events.push("scout");
+            return { status: "completed", role: request.role, provider: "codex", summary: "clean", findings: [], verifications: [] };
+          },
+        }, required: true },
+        { role: "security-scout", provider: provider("codex", "scout", { head: "h2" }), required: true },
+      ],
+      verifiers: [], concurrency: 2, timeoutMs: 100, quorum: 1, minimumConfidence: 0.8,
+      now: () => "2026-10-20T00:00:00.000Z",
+    });
+    expect(result.outcome).toBe("passed");
+    expect(events).toEqual(["verify", "scout"]);
+  });
+
   it("rejects cached terminal sessions when the head or base input changed", async () => {
     const terminalSession = {
       id: "cached", version: 1, state: "passed" as const,
       baseRef: "origin/main", mergeBaseSha: "base", headSha: "h1", maxRounds: 3,
+        inputFingerprint: "inputs",
       rounds: [], knownFingerprints: [], createdAt: "now", updatedAt: "now",
     };
     const changedHead = new MemoryStore();
     changedHead.value = terminalSession;
     const common = {
-      sessionId: "cached", maxRounds: 3, highRiskPaths: [], depth: "quick" as const,
+      sessionId: "cached", maxRounds: 3, inputFingerprint: "inputs", highRiskPaths: [], depth: "quick" as const,
       fix: false, verification, scouts: [], verifiers: [], concurrency: 1,
       timeoutMs: 100, quorum: 1, minimumConfidence: 0.8,
     };
@@ -192,12 +233,22 @@ describe("local review orchestration", () => {
       repository: repository({ head: "h1" }),
       stateStore: changedBase,
     })).rejects.toThrow(/does not match.*base|base.*does not match/i);
+
+    const changedInputs = new MemoryStore();
+    changedInputs.value = terminalSession;
+    await expect(runLocalReview({
+      ...common,
+      inputFingerprint: "different-inputs",
+      baseRef: "origin/main",
+      repository: repository({ head: "h1" }),
+      stateStore: changedInputs,
+    })).rejects.toThrow(/does not match.*input|input.*does not match/i);
   });
 
   it("fails closed when an independent required security scout is not configured", async () => {
     const repoState = { head: "h1" };
     const result = await runLocalReview({
-      sessionId: "session-3", baseRef: "origin/main", maxRounds: 3,
+      sessionId: "session-3", baseRef: "origin/main", maxRounds: 3, inputFingerprint: "inputs",
       highRiskPaths: [], depth: "standard", fix: false,
       repository: repository(repoState), verification, stateStore: new MemoryStore(),
       scouts: [{ role: "correctness-scout", provider: provider("codex", "scout", repoState), required: true }],
@@ -226,7 +277,7 @@ describe("local review orchestration", () => {
       },
     };
     const result = await runLocalReview({
-      sessionId: "session-4", baseRef: "origin/main", maxRounds: 3,
+      sessionId: "session-4", baseRef: "origin/main", maxRounds: 3, inputFingerprint: "inputs",
       highRiskPaths: [], depth: "quick", fix: false,
       repository: repository(repoState), verification, stateStore: new MemoryStore(),
       scouts: [

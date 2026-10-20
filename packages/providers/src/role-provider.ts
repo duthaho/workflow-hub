@@ -41,7 +41,7 @@ export abstract class RoleProvider implements AgentProvider {
     prompt: string;
     schemaPath: string;
     outputPath: string;
-  }): { command: string; args: string[]; outputSource: "stdout" | "file" };
+  }): { command: string; args: string[]; stdin: string; outputSource: "stdout" | "file" };
 
   async runRole(request: AgentRoleRequest): Promise<AgentRoleResult> {
     const isFix = request.role === "fix-agent";
@@ -58,7 +58,10 @@ export abstract class RoleProvider implements AgentProvider {
         schemaPath,
         outputPath,
       });
-      const process = await this.executor.run(invocation.command, invocation.args, { cwd: this.cwd });
+      const process = await this.executor.run(invocation.command, invocation.args, {
+        cwd: this.cwd,
+        stdin: invocation.stdin,
+      });
       if (process.exitCode !== 0) {
         throw new Error(`${this.name} ${request.role} failed with exit code ${process.exitCode}: ${process.stderr.trim()}`);
       }

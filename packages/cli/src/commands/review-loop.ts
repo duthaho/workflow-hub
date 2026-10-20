@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -25,6 +26,28 @@ export interface ReviewLoopCommandInput {
 }
 
 export type ReviewLoopCommand = (input: ReviewLoopCommandInput) => Promise<LocalReviewResult>;
+
+export function buildReviewInputFingerprint(input: Pick<
+  ReviewLoopCommandInput,
+  "config" | "depth" | "fix" | "task"
+>): string {
+  const taskDigest = createHash("sha256").update(input.task ?? "").digest("hex");
+  const identity = {
+    taskDigest,
+    depth: input.depth,
+    fix: input.fix,
+    author: input.config.providers.author,
+    reviewers: input.config.providers.reviewers,
+    verifyCommand: input.config.commands.verify,
+    highRiskPaths: [...input.config.risk.highRiskPaths].sort(),
+    maxRounds: input.config.review.maxRounds,
+    minimumConfidence: input.config.review.minimumConfidence,
+    quorum: 1,
+    concurrency: 2,
+    timeoutMs: 10 * 60 * 1000,
+  };
+  return createHash("sha256").update(JSON.stringify(identity)).digest("hex");
+}
 
 export class GitRepository implements RepositoryPort {
   constructor(private readonly cwd: string, private readonly runner: CommandRunner) {}
@@ -141,6 +164,7 @@ export const runReviewLoopCommand: ReviewLoopCommand = async (input) => {
     sessionId,
     baseRef: input.baseRef,
     maxRounds: input.config.review.maxRounds,
+    inputFingerprint: buildReviewInputFingerprint(input),
     highRiskPaths: input.config.risk.highRiskPaths,
     depth: input.depth,
     fix: input.fix,

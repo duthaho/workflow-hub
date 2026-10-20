@@ -9,6 +9,7 @@ import {
   transitionReviewSession,
   type ReviewSession,
 } from "../domain/review-session.js";
+import { isActionableReviewFinding } from "../domain/finding.js";
 import { classifyRisk, type RiskClassification } from "../policy.js";
 import type { AgentProvider } from "../ports/agent-provider.js";
 import type { RepositoryPort } from "../ports/repository.js";
@@ -27,6 +28,7 @@ export interface RunLocalReviewOptions {
   sessionId: string;
   baseRef: string;
   maxRounds: number;
+  inputFingerprint: string;
   highRiskPaths: string[];
   depth: "quick" | "standard" | "deep";
   fix: boolean;
@@ -79,11 +81,13 @@ export async function runLocalReview(options: RunLocalReviewOptions): Promise<Lo
       mergeBaseSha,
       headSha,
       maxRounds: options.maxRounds,
+      inputFingerprint: options.inputFingerprint,
       now: now(),
     });
     session = await persist(options.stateStore, session);
   }
   const terminalOutcome = outcomeForState(session.state);
+  let resumedHeadChanged = false;
   if (resumed) {
     if (session.baseRef !== options.baseRef) {
       throw new Error(`Review session does not match requested base: ${session.baseRef} != ${options.baseRef}`);
@@ -91,12 +95,16 @@ export async function runLocalReview(options: RunLocalReviewOptions): Promise<Lo
     if (session.maxRounds !== options.maxRounds) {
       throw new Error(`Review session does not match maxRounds: ${session.maxRounds} != ${options.maxRounds}`);
     }
+    if (session.inputFingerprint !== options.inputFingerprint) {
+      throw new Error("Review session does not match current review inputs");
+    }
     const currentHead = await options.repository.resolveRef("HEAD");
     const currentMergeBase = await options.repository.mergeBase(options.baseRef, currentHead);
     if (currentMergeBase !== session.mergeBaseSha) {
       throw new Error("Review session does not match the current merge base");
     }
-    if (terminalOutcome !== undefined && currentHead !== session.headSha) {
+    resumedHeadChanged = currentHead !== session.headSha;
+    if (terminalOutcome !== undefined && resumedHeadChanged) {
       throw new Error("Review session does not match the current head");
     }
   }
@@ -133,7 +141,7 @@ export async function runLocalReview(options: RunLocalReviewOptions): Promise<Lo
       session = await persist(options.stateStore, session);
       return false;
     }
-    const open = session!.rounds.at(-1)?.findings.filter((finding) => finding.state === "open") ?? [];
+    const open = session!.rounds.at(-1)?.findings.filter(isActionableReviewFinding) ?? [];
     session = transitionReviewSession(session!, "fixing", now());
     session = await persist(options.stateStore, session);
     try {
@@ -187,11 +195,19 @@ export async function runLocalReview(options: RunLocalReviewOptions): Promise<Lo
     if (!(await verifyProject())) return { outcome: "blocked", session, risk };
     session = transitionReviewSession(session, "reviewing", now());
     session = await persist(options.stateStore, session);
-  } else if (session.state === "reviewing" && session.rounds.at(-1)?.findings.some((finding) => finding.state === "open")) {
-    if (!options.fix) return { outcome: "actionable", session, risk };
-    if (!(await applyFix())) return { outcome: "blocked", session, risk };
   } else if (session.state === "fixing") {
     throw new Error("Cannot resume a session interrupted during fix; inspect the worktree and start a new session");
+  }
+
+  if (session.state === "reviewing" && resumedHeadChanged) {
+    session = transitionReviewSession(session, "verifying", now());
+    session = await persist(options.stateStore, session);
+    if (!(await verifyProject())) return { outcome: "blocked", session, risk };
+    session = transitionReviewSession(session, "reviewing", now());
+    session = await persist(options.stateStore, session);
+  } else if (session.state === "reviewing" && session.rounds.at(-1)?.findings.some(isActionableReviewFinding)) {
+    if (!options.fix) return { outcome: "actionable", session, risk };
+    if (!(await applyFix())) return { outcome: "blocked", session, risk };
   }
 
   while (session.rounds.length < session.maxRounds) {

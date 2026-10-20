@@ -19,8 +19,9 @@ export class CodexProvider extends RoleProvider {
         "--ignore-user-config",
         "--output-schema", input.schemaPath,
         "--output-last-message", input.outputPath,
-        input.prompt,
+        "-",
       ],
+      stdin: input.prompt,
       outputSource: "file" as const,
     };
   }

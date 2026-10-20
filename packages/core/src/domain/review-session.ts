@@ -17,6 +17,7 @@ export interface ReviewSession {
   mergeBaseSha: string;
   headSha: string;
   maxRounds: number;
+  inputFingerprint: string;
   rounds: ReviewRound[];
   knownFingerprints: string[];
   createdAt: string;
@@ -28,7 +29,7 @@ const terminal = new Set<ReviewSessionState>(["passed", "escalated", "blocked"])
 const transitions: Record<ReviewSessionState, ReviewSessionState[]> = {
   pending: ["verifying", "fixing", "blocked"],
   verifying: ["reviewing", "blocked"],
-  reviewing: ["fixing", "passed", "escalated", "blocked"],
+  reviewing: ["verifying", "fixing", "passed", "escalated", "blocked"],
   fixing: ["verifying", "blocked", "escalated"],
   passed: [],
   escalated: [],
@@ -41,6 +42,7 @@ export function createReviewSession(input: {
   mergeBaseSha: string;
   headSha: string;
   maxRounds: number;
+  inputFingerprint: string;
   now: string;
 }): ReviewSession {
   if (!Number.isInteger(input.maxRounds) || input.maxRounds < 1) {
@@ -54,6 +56,7 @@ export function createReviewSession(input: {
     mergeBaseSha: input.mergeBaseSha,
     headSha: input.headSha,
     maxRounds: input.maxRounds,
+    inputFingerprint: input.inputFingerprint,
     rounds: [],
     knownFingerprints: [],
     createdAt: input.now,

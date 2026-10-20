@@ -4,22 +4,24 @@ import { join } from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
 
+import type { WorkflowConfig } from "../../core/src/contracts.js";
 import { runCli } from "../src/cli.js";
 import {
+  buildReviewInputFingerprint,
   GitRepository,
   resolveProviderBinary,
   type ReviewLoopCommand,
 } from "../src/commands/review-loop.js";
 import { defaultCommandRunner } from "../src/verification.js";
 
-const config = {
+const config: WorkflowConfig = {
   schemaVersion: 1,
   project: { name: "demo", profile: "node" },
   providers: { author: "claude", reviewers: ["codex"] },
   commands: { verify: "npm run check" },
   risk: { highRiskPaths: [] },
   review: { maxRounds: 3, minimumConfidence: 0.8 },
-} as const;
+};
 
 function result(outcome: "passed" | "actionable" = "passed") {
   return {
@@ -28,6 +30,7 @@ function result(outcome: "passed" | "actionable" = "passed") {
     session: {
       id: "session-1", version: 1, state: outcome === "passed" ? "passed" as const : "reviewing" as const,
       baseRef: "origin/main", mergeBaseSha: "base", headSha: "head", maxRounds: 3,
+      inputFingerprint: "inputs",
       rounds: [], knownFingerprints: [], createdAt: "now", updatedAt: "now",
     },
   };
@@ -76,6 +79,27 @@ describe("review-loop CLI", () => {
     expect(resolveProviderBinary("codex", environment)).toBe("/opt/tools/codex");
     expect(resolveProviderBinary("claude", environment)).toBe("/opt/tools/claude");
     expect(resolveProviderBinary("codex", {})).toBeUndefined();
+  });
+
+  it("binds session identity to task and review policy inputs", () => {
+    const first = buildReviewInputFingerprint({
+      config,
+      depth: "standard",
+      fix: true,
+      task: "task one",
+    });
+    expect(buildReviewInputFingerprint({
+      config,
+      depth: "standard",
+      fix: true,
+      task: "task two",
+    })).not.toBe(first);
+    expect(buildReviewInputFingerprint({
+      config,
+      depth: "quick",
+      fix: true,
+      task: "task one",
+    })).not.toBe(first);
   });
 
   it("captures tracked and untracked worktree changes in a review snapshot", async () => {

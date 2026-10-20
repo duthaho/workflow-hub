@@ -13,6 +13,7 @@ const start = {
   mergeBaseSha: "base-sha",
   headSha: "head-sha",
   maxRounds: 2,
+  inputFingerprint: "inputs",
   now: "2026-10-20T10:00:00.000Z",
 };
 

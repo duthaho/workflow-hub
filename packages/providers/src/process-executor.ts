@@ -7,13 +7,15 @@ export interface ProviderProcessResult {
 }
 
 export interface ProviderProcessExecutor {
-  run(command: string, args: string[], options: { cwd: string }): Promise<ProviderProcessResult>;
+  run(command: string, args: string[], options: { cwd: string; stdin?: string }): Promise<ProviderProcessResult>;
 }
 
 export const defaultProviderProcessExecutor: ProviderProcessExecutor = {
   run(command, args, options) {
     return new Promise((resolve, reject) => {
-      const child = spawn(command, args, { cwd: options.cwd, shell: false, stdio: ["ignore", "pipe", "pipe"] });
+      const child = spawn(command, args, { cwd: options.cwd, shell: false, stdio: ["pipe", "pipe", "pipe"] });
+      child.stdin.on("error", () => undefined);
+      child.stdin.end(options.stdin ?? "");
       let stdout = "";
       let stderr = "";
       child.stdout.setEncoding("utf8");

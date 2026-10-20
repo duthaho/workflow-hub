@@ -41,6 +41,7 @@ export const ReviewSessionSchema = z.object({
   mergeBaseSha: z.string(),
   headSha: z.string(),
   maxRounds: z.number().int().positive(),
+  inputFingerprint: z.string().min(1),
   rounds: z.array(ReviewRoundSchema),
   knownFingerprints: z.array(z.string()),
   createdAt: z.string(),

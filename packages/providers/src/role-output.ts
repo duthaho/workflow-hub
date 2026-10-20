@@ -3,14 +3,14 @@ import { z } from "zod";
 import { AGENT_ROLES } from "../../core/src/domain/agent-role.js";
 
 const EvidenceSchema = z.object({
-  role: z.enum(AGENT_ROLES), provider: z.string(), text: z.string(),
+  role: z.enum(AGENT_ROLES), provider: z.string().trim().min(1), text: z.string().trim().min(1),
 });
 const CandidateSchema = z.object({
   severity: z.enum(["low", "medium", "high", "critical"]),
   confidence: z.number().min(0).max(1), category: z.string(), defectClass: z.string(),
   symbol: z.string(), title: z.string(),
   location: z.object({ path: z.string(), startLine: z.number().int(), endLine: z.number().int() }),
-  evidence: z.array(EvidenceSchema), classification: z.enum(["introduced", "pre_existing", "style_only", "unsupported"]),
+  evidence: z.array(EvidenceSchema).min(1), classification: z.enum(["introduced", "pre_existing", "style_only", "unsupported"]),
   remediation: z.string(),
 });
 const VerificationSchema = z.object({

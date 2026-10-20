@@ -24,8 +24,8 @@ export class ClaudeProvider extends RoleProvider {
         "--json-schema", JSON.stringify(agentRoleJsonSchema),
         "--max-turns", "12",
         "--no-session-persistence",
-        input.prompt,
       ],
+      stdin: input.prompt,
       outputSource: "stdout" as const,
     };
   }

@@ -1,4 +1,4 @@
-import type { ReviewFinding } from "../domain/finding.js";
+import { isActionableReviewFinding, type ReviewFinding } from "../domain/finding.js";
 
 export interface ReconcileRoundResult {
   findings: ReviewFinding[];
@@ -8,7 +8,7 @@ export interface ReconcileRoundResult {
 }
 
 function openFingerprints(findings: ReviewFinding[]): string[] {
-  return findings.filter((finding) => finding.state === "open")
+  return findings.filter(isActionableReviewFinding)
     .map((finding) => finding.fingerprint).sort();
 }
 

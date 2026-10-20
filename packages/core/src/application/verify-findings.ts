@@ -19,7 +19,13 @@ function validLocation(finding: ReviewFinding, lineCounts: Record<string, number
   const count = lineCounts[finding.location.path];
   return count !== undefined && finding.location.startLine >= 1 &&
     finding.location.endLine >= finding.location.startLine &&
-    finding.location.endLine <= count && finding.evidence.length > 0;
+    finding.location.endLine <= count;
+}
+
+function validEvidence(finding: ReviewFinding): boolean {
+  return finding.evidence.length > 0 && finding.evidence.every(
+    (evidence) => evidence.provider.trim() !== "" && evidence.text.trim() !== "",
+  );
 }
 
 export async function verifyFindings(input: {
@@ -45,6 +51,12 @@ export async function verifyFindings(input: {
   let blocked = false;
 
   for (const finding of input.findings) {
+    if (!validEvidence(finding)) {
+      blocked = true;
+      findings.push(finding);
+      failures.push(`${finding.fingerprint}: finding evidence is missing or blank`);
+      continue;
+    }
     if (!validLocation(finding, input.lineCounts)) {
       findings.push({ ...finding, state: "dismissed_false_positive" });
       failures.push(`${finding.fingerprint}: deterministic validation failed`);
@@ -84,9 +96,10 @@ export async function verifyFindings(input: {
         failures.push(`${finding.fingerprint}: verifier ${provider?.name ?? index} failed`);
         return;
       }
-      verifications.push(...outcome.value.verifications.filter(
-        (verification) => verification.fingerprint === finding.fingerprint,
-      ));
+      const verification = outcome.value.verifications.find(
+        (candidate) => candidate.fingerprint === finding.fingerprint,
+      );
+      if (verification !== undefined) verifications.push(verification);
     });
     if (verifications.length < input.quorum) {
       blocked = true;
