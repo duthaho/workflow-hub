@@ -25,6 +25,7 @@ describe("runReview", () => {
     await writeFile(join(cwd, "REVIEW.md"), "Focus on regressions.\n");
     const rawReport = {
       schemaVersion: 1,
+      status: "completed",
       provider: "claude",
       baseRef: "origin/main",
       headSha: "abcdef1234567890",
@@ -78,6 +79,43 @@ describe("runReview", () => {
     expect(persisted).toEqual(report);
   });
 
+  it("fails closed when the provider reports that review was blocked", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "workflow-hub-review-"));
+    const runner = vi
+      .fn<CommandRunner>()
+      .mockResolvedValueOnce({
+        exitCode: 0,
+        stdout: "abcdef1234567890\n",
+        stderr: "",
+      })
+      .mockResolvedValueOnce({
+        exitCode: 0,
+        stdout: JSON.stringify({
+          structured_output: {
+            schemaVersion: 1,
+            status: "blocked",
+            provider: "claude",
+            baseRef: "origin/main",
+            headSha: "abcdef1234567890",
+            summary: "The sandbox could not inspect the diff.",
+            findings: [],
+          },
+        }),
+        stderr: "",
+      });
+
+    await expect(
+      runReview({
+        cwd,
+        config,
+        provider: "claude",
+        kind: "correctness",
+        baseRef: "origin/main",
+        runner,
+      }),
+    ).rejects.toThrow(/review blocked.*sandbox could not inspect/i);
+  });
+
   it("rejects provider metadata that does not match the invocation", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "workflow-hub-review-"));
     const runner = vi
@@ -92,6 +130,7 @@ describe("runReview", () => {
         stdout: JSON.stringify({
           structured_output: {
             schemaVersion: 1,
+            status: "completed",
             provider: "codex",
             baseRef: "origin/main",
             headSha: "abcdef1234567890",

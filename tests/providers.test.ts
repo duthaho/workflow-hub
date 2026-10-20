@@ -63,6 +63,7 @@ describe("reviewReportJsonSchema", () => {
 describe("extractStructuredReport", () => {
   const report = {
     schemaVersion: 1,
+    status: "completed",
     provider: "claude",
     baseRef: "origin/main",
     headSha: "abc1234",

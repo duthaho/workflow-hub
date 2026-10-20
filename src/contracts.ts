@@ -57,6 +57,7 @@ export type Finding = z.infer<typeof FindingSchema>;
 
 export const ReviewReportSchema = z.object({
   schemaVersion: z.literal(1),
+  status: z.enum(["completed", "blocked"]),
   provider: ProviderNameSchema,
   baseRef: z.string().trim().min(1),
   headSha: z.string().trim().min(7),

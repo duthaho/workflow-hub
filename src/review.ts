@@ -125,6 +125,9 @@ export async function runReview(
       `${JSON.stringify(report, null, 2)}\n`,
       "utf8",
     );
+    if (report.status === "blocked") {
+      throw new Error(`Review blocked: ${report.summary}`);
+    }
     return report;
   } finally {
     await rm(temporaryDirectory, { recursive: true, force: true });

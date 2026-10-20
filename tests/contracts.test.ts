@@ -83,6 +83,7 @@ describe("parseReviewReport", () => {
     const report = parseReviewReport(
       JSON.stringify({
         schemaVersion: 1,
+        status: "completed",
         provider: "codex",
         baseRef: "origin/main",
         headSha: "abc1234",
