@@ -29,7 +29,7 @@ describe("workspace architecture", () => {
     const root = await manifest("package.json");
     expect(root.workspaces).toEqual(["packages/*"]);
     expect(root.bin).toEqual({
-      "workflow-hub": "./dist/packages/cli/src/cli.js",
+      "workflow-hub": "./dist/cli.js",
     });
 
     for (const packageName of packages) {

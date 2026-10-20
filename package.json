@@ -25,19 +25,19 @@
     "LICENSE"
   ],
   "bin": {
-    "workflow-hub": "./dist/packages/cli/src/cli.js"
+    "workflow-hub": "./dist/cli.js"
   },
   "engines": {
     "node": ">=22"
   },
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
-    "build": "npm run clean && tsc -p tsconfig.build.json",
+    "build": "npm run clean && tsc -p tsconfig.build.json && node scripts/generate-compatibility.mjs",
     "prepare": "npm run build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "npm run typecheck && npm test && npm run build"
+    "check": "npm run typecheck && npm test && npm run build && node scripts/verify-package.mjs"
   },
   "dependencies": {
     "zod": "^4.1.12"
