@@ -76,6 +76,44 @@ describe("local review orchestration", () => {
     expect(verification.verify).toHaveBeenCalledTimes(2);
   });
 
+  it("executes an explicit develop task before verification and review", async () => {
+    const events: string[] = [];
+    const repoState = { head: "h1" };
+    const fixProvider: AgentProvider = {
+      name: "author",
+      async runRole(request) {
+        events.push("fix");
+        repoState.head = "h2";
+        expect(request.task).toContain("Implement requested feature");
+        return { status: "completed", role: request.role, provider: "author", summary: "done", findings: [], verifications: [] };
+      },
+    };
+    const cleanScout: AgentProvider = {
+      name: "codex",
+      async runRole(request) {
+        events.push(request.role);
+        return { status: "completed", role: request.role, provider: "codex", summary: "clean", findings: [], verifications: [] };
+      },
+    };
+    const result = await runLocalReview({
+      sessionId: "session-task", baseRef: "origin/main", maxRounds: 3,
+      highRiskPaths: [], depth: "quick", fix: true, task: "Implement requested feature",
+      repository: repository(repoState),
+      verification: { async verify() { events.push("verify"); return { status: "passed", checks: [], durationMs: 1 }; } },
+      stateStore: new MemoryStore(),
+      scouts: [
+        { role: "correctness-scout", provider: cleanScout, required: true },
+        { role: "security-scout", provider: cleanScout, required: true },
+      ],
+      verifiers: [provider("claude", "verifier")], fixProvider,
+      concurrency: 2, timeoutMs: 100, quorum: 1, minimumConfidence: 0.8,
+      now: () => "2026-10-20T00:00:00.000Z",
+    });
+    expect(result.outcome).toBe("passed");
+    expect(events[0]).toBe("fix");
+    expect(events[1]).toBe("verify");
+  });
+
   it("escalates unresolved findings at maxRounds", async () => {
     const repoState = { head: "h1" };
     const result = await runLocalReview({
@@ -91,6 +129,69 @@ describe("local review orchestration", () => {
       now: () => "2026-10-20T00:00:00.000Z",
     });
     expect(result.outcome).toBe("escalated");
+  });
+
+  it("resumes deterministic verification before starting a new review round", async () => {
+    for (const rounds of [
+      [],
+      [{
+        number: 1, baseSha: "base", headSha: "h1", scope: "merge-base" as const,
+        startedAt: "now", completedAt: "now", findings: [], emittedFingerprints: [], scoutFailures: [],
+      }],
+    ]) {
+      const store = new MemoryStore();
+      store.value = {
+        id: `verifying-${rounds.length}`, version: 2, state: "verifying",
+        baseRef: "origin/main", mergeBaseSha: "base", headSha: "h1", maxRounds: 3,
+        rounds, knownFingerprints: [], createdAt: "now", updatedAt: "now",
+      };
+      const verify = vi.fn(async () => ({ status: "passed" as const, checks: [], durationMs: 1 }));
+      const cleanScout = provider("codex", "scout", { head: "h2" });
+      const result = await runLocalReview({
+        sessionId: store.value.id, baseRef: "origin/main", maxRounds: 3,
+        highRiskPaths: [], depth: "quick", fix: false,
+        repository: repository({ head: "h1" }), verification: { verify }, stateStore: store,
+        scouts: [
+          { role: "correctness-scout", provider: cleanScout, required: true },
+          { role: "security-scout", provider: cleanScout, required: true },
+        ],
+        verifiers: [provider("claude", "verifier")],
+        concurrency: 2, timeoutMs: 100, quorum: 1, minimumConfidence: 0.8,
+        now: () => "2026-10-20T00:00:00.000Z",
+      });
+      expect(result.outcome).toBe("passed");
+      expect(verify).toHaveBeenCalledOnce();
+    }
+  });
+
+  it("rejects cached terminal sessions when the head or base input changed", async () => {
+    const terminalSession = {
+      id: "cached", version: 1, state: "passed" as const,
+      baseRef: "origin/main", mergeBaseSha: "base", headSha: "h1", maxRounds: 3,
+      rounds: [], knownFingerprints: [], createdAt: "now", updatedAt: "now",
+    };
+    const changedHead = new MemoryStore();
+    changedHead.value = terminalSession;
+    const common = {
+      sessionId: "cached", maxRounds: 3, highRiskPaths: [], depth: "quick" as const,
+      fix: false, verification, scouts: [], verifiers: [], concurrency: 1,
+      timeoutMs: 100, quorum: 1, minimumConfidence: 0.8,
+    };
+    await expect(runLocalReview({
+      ...common,
+      baseRef: "origin/main",
+      repository: repository({ head: "h2" }),
+      stateStore: changedHead,
+    })).rejects.toThrow(/does not match.*head|head.*does not match/i);
+
+    const changedBase = new MemoryStore();
+    changedBase.value = terminalSession;
+    await expect(runLocalReview({
+      ...common,
+      baseRef: "origin/release",
+      repository: repository({ head: "h1" }),
+      stateStore: changedBase,
+    })).rejects.toThrow(/does not match.*base|base.*does not match/i);
   });
 
   it("fails closed when an independent required security scout is not configured", async () => {

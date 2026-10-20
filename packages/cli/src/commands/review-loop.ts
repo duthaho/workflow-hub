@@ -1,3 +1,7 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import type { WorkflowConfig } from "../../../core/src/contracts.js";
 import { runLocalReview, type LocalReviewResult, type RunLocalReviewOptions } from "../../../core/src/application/run-local-review.js";
 import type { AgentProvider } from "../../../core/src/ports/agent-provider.js";
@@ -22,16 +26,49 @@ export interface ReviewLoopCommandInput {
 
 export type ReviewLoopCommand = (input: ReviewLoopCommandInput) => Promise<LocalReviewResult>;
 
-class GitRepository implements RepositoryPort {
+export class GitRepository implements RepositoryPort {
   constructor(private readonly cwd: string, private readonly runner: CommandRunner) {}
 
-  private async git(args: string[]): Promise<string> {
-    const result = await this.runner("git", args, { cwd: this.cwd, shell: false, inheritStdio: false });
+  private async git(args: string[], env?: NodeJS.ProcessEnv): Promise<string> {
+    const result = await this.runner("git", args, {
+      cwd: this.cwd,
+      shell: false,
+      inheritStdio: false,
+      ...(env === undefined ? {} : { env }),
+    });
     if (result.exitCode !== 0) throw new Error(`git ${args[0] ?? "command"} failed: ${result.stderr.trim()}`);
     return result.stdout;
   }
 
-  async resolveRef(ref: string) { return (await this.git(["rev-parse", ref])).trim(); }
+  async resolveRef(ref: string) {
+    if (ref !== "HEAD") return (await this.git(["rev-parse", ref])).trim();
+    const head = (await this.git(["rev-parse", "HEAD"])).trim();
+    const status = await this.git(["status", "--porcelain=v1", "-z", "--untracked-files=all"]);
+    if (status.length === 0) return head;
+
+    const directory = await mkdtemp(join(tmpdir(), "workflow-hub-index-"));
+    const env = {
+      ...process.env,
+      GIT_INDEX_FILE: join(directory, "index"),
+      GIT_AUTHOR_NAME: "workflow-hub",
+      GIT_AUTHOR_EMAIL: "workflow-hub@localhost",
+      GIT_COMMITTER_NAME: "workflow-hub",
+      GIT_COMMITTER_EMAIL: "workflow-hub@localhost",
+      GIT_AUTHOR_DATE: "1970-01-01T00:00:00Z",
+      GIT_COMMITTER_DATE: "1970-01-01T00:00:00Z",
+    };
+    try {
+      await this.git(["read-tree", head], env);
+      await this.git(["add", "-A"], env);
+      const tree = (await this.git(["write-tree"], env)).trim();
+      return (await this.git(
+        ["commit-tree", tree, "-p", head, "-m", "workflow-hub worktree snapshot"],
+        env,
+      )).trim();
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  }
   async mergeBase(baseRef: string, headRef: string) { return (await this.git(["merge-base", baseRef, headRef])).trim(); }
   async changedFiles(baseSha: string, headSha: string) {
     return (await this.git(["diff", "--name-only", "-z", baseSha, headSha])).split("\0").filter(Boolean);

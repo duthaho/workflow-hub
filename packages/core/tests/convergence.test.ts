@@ -50,6 +50,22 @@ describe("review convergence", () => {
     expect(result.findings.find((item) => item.fingerprint === "gone")?.state).toBe("fixed");
   });
 
+  it("carries unresolved findings that are outside an incremental review scope", () => {
+    const result = reconcileRound({
+      previousFindings: [finding("outside")],
+      currentFindings: [],
+      reviewedPaths: ["src/other.ts"],
+      roundNumber: 3,
+      maxRounds: 4,
+      previousHeadSha: "h2",
+      currentHeadSha: "h3",
+    });
+    expect(result.findings).toEqual([
+      expect.objectContaining({ fingerprint: "outside", state: "open" }),
+    ]);
+    expect(result.outcome).toBe("escalated");
+  });
+
   it("escalates on no progress and at the round cap", () => {
     const noProgress = reconcileRound({
       previousFindings: [finding("same")], currentFindings: [finding("same")],

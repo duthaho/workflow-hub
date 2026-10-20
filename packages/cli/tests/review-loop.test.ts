@@ -6,9 +6,11 @@ import { describe, expect, it, vi } from "vitest";
 
 import { runCli } from "../src/cli.js";
 import {
+  GitRepository,
   resolveProviderBinary,
   type ReviewLoopCommand,
 } from "../src/commands/review-loop.js";
+import { defaultCommandRunner } from "../src/verification.js";
 
 const config = {
   schemaVersion: 1,
@@ -74,5 +76,35 @@ describe("review-loop CLI", () => {
     expect(resolveProviderBinary("codex", environment)).toBe("/opt/tools/codex");
     expect(resolveProviderBinary("claude", environment)).toBe("/opt/tools/claude");
     expect(resolveProviderBinary("codex", {})).toBeUndefined();
+  });
+
+  it("captures tracked and untracked worktree changes in a review snapshot", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "workflow-hub-snapshot-"));
+    const run = async (command: string, args: string[]) => {
+      const value = await defaultCommandRunner(command, args, {
+        cwd, shell: false, inheritStdio: false,
+      });
+      if (value.exitCode !== 0) throw new Error(value.stderr);
+      return value.stdout.trim();
+    };
+    await run("git", ["init"]);
+    await run("git", ["config", "user.name", "Test"]);
+    await run("git", ["config", "user.email", "test@example.com"]);
+    await writeFile(join(cwd, "tracked.txt"), "before\n");
+    await run("git", ["add", "."]);
+    await run("git", ["commit", "-m", "base"]);
+    const base = await run("git", ["rev-parse", "HEAD"]);
+    await writeFile(join(cwd, "tracked.txt"), "after\n");
+    await writeFile(join(cwd, "new.txt"), "new file\n");
+
+    const repository = new GitRepository(cwd, defaultCommandRunner);
+    const snapshot = await repository.resolveRef("HEAD");
+    expect(snapshot).not.toBe(base);
+    await expect(repository.changedFiles(base, snapshot)).resolves.toEqual([
+      "new.txt", "tracked.txt",
+    ]);
+    const diff = await repository.diff(base, snapshot);
+    expect(diff).toContain("after");
+    expect(diff).toContain("new file");
   });
 });

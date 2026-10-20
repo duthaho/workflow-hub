@@ -26,7 +26,7 @@ export interface ReviewSession {
 
 const terminal = new Set<ReviewSessionState>(["passed", "escalated", "blocked"]);
 const transitions: Record<ReviewSessionState, ReviewSessionState[]> = {
-  pending: ["verifying", "blocked"],
+  pending: ["verifying", "fixing", "blocked"],
   verifying: ["reviewing", "blocked"],
   reviewing: ["fixing", "passed", "escalated", "blocked"],
   fixing: ["verifying", "blocked", "escalated"],

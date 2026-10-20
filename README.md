@@ -112,7 +112,9 @@ workflow-hub review-loop --base origin/main --depth standard
 workflow-hub review-loop --resume <session-id> --fix
 ```
 
-The controller runs deterministic verification, required correctness/security scouts, semantic deduplication, independent finding verification, and bounded reconciliation. Review roles are read-only and ephemeral. State is atomically persisted under `.workflow-hub/state/`; malformed provider output, missing security review, unavailable verifier quorum, and corrupt state fail closed. Exit codes are `0` for pass, `1` for blocked, and `2` for actionable/escalated.
+The controller runs deterministic verification, required correctness/security scouts, semantic deduplication, independent finding verification, and bounded reconciliation. Review roles are read-only and ephemeral. Each round captures an immutable Git snapshot, including staged, unstaged, and untracked files, so fix output is reviewed before it is committed. State is atomically persisted under `.workflow-hub/state/` with an exclusive compare-and-swap lock; malformed provider output, missing security review, unavailable verifier quorum, corrupt state, and mismatched resume inputs fail closed. Exit codes are `0` for pass, `1` for blocked, and `2` for actionable/escalated.
+
+Provider executables are resolved from `PATH` by default. Set `WORKFLOW_HUB_CODEX_BIN` or `WORKFLOW_HUB_CLAUDE_BIN` to an explicit executable path when the CLI is installed outside the subprocess `PATH`.
 
 ### `workflow-hub develop`
 

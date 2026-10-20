@@ -69,6 +69,7 @@ function selectScouts(
 export async function runLocalReview(options: RunLocalReviewOptions): Promise<LocalReviewResult> {
   const now = options.now ?? (() => new Date().toISOString());
   let session = await options.stateStore.load(options.sessionId);
+  const resumed = session !== undefined;
   if (session === undefined) {
     const headSha = await options.repository.resolveRef("HEAD");
     const mergeBaseSha = await options.repository.mergeBase(options.baseRef, headSha);
@@ -83,6 +84,22 @@ export async function runLocalReview(options: RunLocalReviewOptions): Promise<Lo
     session = await persist(options.stateStore, session);
   }
   const terminalOutcome = outcomeForState(session.state);
+  if (resumed) {
+    if (session.baseRef !== options.baseRef) {
+      throw new Error(`Review session does not match requested base: ${session.baseRef} != ${options.baseRef}`);
+    }
+    if (session.maxRounds !== options.maxRounds) {
+      throw new Error(`Review session does not match maxRounds: ${session.maxRounds} != ${options.maxRounds}`);
+    }
+    const currentHead = await options.repository.resolveRef("HEAD");
+    const currentMergeBase = await options.repository.mergeBase(options.baseRef, currentHead);
+    if (currentMergeBase !== session.mergeBaseSha) {
+      throw new Error("Review session does not match the current merge base");
+    }
+    if (terminalOutcome !== undefined && currentHead !== session.headSha) {
+      throw new Error("Review session does not match the current head");
+    }
+  }
   const initialPaths = await options.repository.changedFiles(session.mergeBaseSha, session.headSha);
   let risk = classifyRisk({ changedPaths: initialPaths, findingSeverities: [], highRiskPaths: options.highRiskPaths });
   if (terminalOutcome) return { outcome: terminalOutcome, session, risk };
@@ -110,7 +127,7 @@ export async function runLocalReview(options: RunLocalReviewOptions): Promise<Lo
     return true;
   };
 
-  const applyFix = async (): Promise<boolean> => {
+  const applyFix = async (initialTask = false): Promise<boolean> => {
     if (!options.fixProvider) {
       session = transitionReviewSession(session!, "blocked", now(), "Fix requested but no fix provider is configured");
       session = await persist(options.stateStore, session);
@@ -121,6 +138,9 @@ export async function runLocalReview(options: RunLocalReviewOptions): Promise<Lo
     session = await persist(options.stateStore, session);
     try {
       const headSha = await options.repository.resolveRef("HEAD");
+      const fixTask = initialTask
+        ? options.task
+        : `Fix these verified findings: ${JSON.stringify(open)}`;
       await options.fixProvider.runRole({
         sessionId: session.id,
         round: session.rounds.length,
@@ -130,9 +150,7 @@ export async function runLocalReview(options: RunLocalReviewOptions): Promise<Lo
         changedFiles: await options.repository.changedFiles(session.mergeBaseSha, headSha),
         diff: await options.repository.diff(session.mergeBaseSha, headSha),
         readOnly: false,
-        task: [options.task, `Fix these verified findings: ${JSON.stringify(open)}`]
-          .filter((value): value is string => Boolean(value))
-          .join("\n\n"),
+        ...(fixTask === undefined ? {} : { task: fixTask }),
       });
     } catch (error) {
       session = transitionReviewSession(
@@ -150,9 +168,22 @@ export async function runLocalReview(options: RunLocalReviewOptions): Promise<Lo
     return true;
   };
 
+  if (session.state === "pending" && options.task !== undefined) {
+    if (!options.fix) {
+      session = transitionReviewSession(session, "blocked", now(), "An explicit development task requires fix mode");
+      session = await persist(options.stateStore, session);
+      return { outcome: "blocked", session, risk };
+    }
+    if (!(await applyFix(true))) return { outcome: "blocked", session, risk };
+  }
+
   if (session.state === "pending") {
     session = transitionReviewSession(session, "verifying", now());
     session = await persist(options.stateStore, session);
+    if (!(await verifyProject())) return { outcome: "blocked", session, risk };
+    session = transitionReviewSession(session, "reviewing", now());
+    session = await persist(options.stateStore, session);
+  } else if (session.state === "verifying") {
     if (!(await verifyProject())) return { outcome: "blocked", session, risk };
     session = transitionReviewSession(session, "reviewing", now());
     session = await persist(options.stateStore, session);
@@ -239,6 +270,7 @@ export async function runLocalReview(options: RunLocalReviewOptions): Promise<Lo
     const reconciled = reconcileRound({
       previousFindings,
       currentFindings: verified.findings,
+      reviewedPaths: changedFiles,
       roundNumber: plan.number,
       maxRounds: session.maxRounds,
       ...(previousHeadSha === undefined ? {} : { previousHeadSha }),
