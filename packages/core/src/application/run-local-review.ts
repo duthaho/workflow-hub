@@ -40,6 +40,7 @@ export interface RunLocalReviewOptions {
   timeoutMs: number;
   quorum: number;
   minimumConfidence: number;
+  task?: string;
   now?: () => string;
 }
 
@@ -129,7 +130,9 @@ export async function runLocalReview(options: RunLocalReviewOptions): Promise<Lo
         changedFiles: await options.repository.changedFiles(session.mergeBaseSha, headSha),
         diff: await options.repository.diff(session.mergeBaseSha, headSha),
         readOnly: false,
-        task: `Fix these verified findings: ${JSON.stringify(open)}`,
+        task: [options.task, `Fix these verified findings: ${JSON.stringify(open)}`]
+          .filter((value): value is string => Boolean(value))
+          .join("\n\n"),
       });
     } catch (error) {
       session = transitionReviewSession(

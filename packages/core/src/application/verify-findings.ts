@@ -51,9 +51,17 @@ export async function verifyFindings(input: {
       continue;
     }
     const originatingProviders = providerNames(finding);
-    const independent = input.verifiers.filter(
+    const crossProvider = input.verifiers.filter(
       (provider) => !originatingProviders.has(provider.name),
     );
+    const freshSameProvider = input.verifiers.filter(
+      (provider) =>
+        originatingProviders.has(provider.name) &&
+        provider.supportsIndependentSessions === true,
+    );
+    const independent = crossProvider.length >= input.quorum
+      ? crossProvider
+      : [...crossProvider, ...freshSameProvider];
     if (independent.length < input.quorum) {
       blocked = true;
       failures.push(`${finding.fingerprint}: insufficient independent verifiers`);

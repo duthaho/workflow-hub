@@ -39,5 +39,6 @@ export interface AgentRoleResult {
 
 export interface AgentProvider {
   readonly name: string;
+  readonly supportsIndependentSessions?: boolean;
   runRole(request: AgentRoleRequest): Promise<AgentRoleResult>;
 }

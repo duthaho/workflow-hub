@@ -22,6 +22,7 @@ export interface RoleProviderOptions {
 
 export abstract class RoleProvider implements AgentProvider {
   abstract readonly name: "claude" | "codex";
+  readonly supportsIndependentSessions = true;
   protected readonly cwd: string;
   protected readonly executor: ProviderProcessExecutor;
   protected readonly allowFix: boolean;
