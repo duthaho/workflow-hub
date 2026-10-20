@@ -1,4 +1,6 @@
 export * from "./application/deduplicate-findings.js";
+export * from "./application/plan-review-round.js";
+export * from "./application/reconcile-round.js";
 export * from "./application/run-scouts.js";
 export * from "./application/verify-findings.js";
 export * from "./contracts.js";
