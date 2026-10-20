@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { ProviderNameSchema, ProjectProfileSchema } from "./contracts.js";
 import { loadWorkflowConfig } from "./config.js";
 import { initializeProject } from "./initialize.js";
@@ -166,10 +169,20 @@ export async function runCli(
   }
 }
 
-const isDirectExecution =
-  process.argv[1] !== undefined &&
-  new URL(import.meta.url).pathname === process.argv[1];
+export function isDirectExecution(
+  moduleUrl: string,
+  argvPath: string | undefined,
+): boolean {
+  if (argvPath === undefined) {
+    return false;
+  }
+  try {
+    return realpathSync(fileURLToPath(moduleUrl)) === realpathSync(argvPath);
+  } catch {
+    return false;
+  }
+}
 
-if (isDirectExecution) {
+if (isDirectExecution(import.meta.url, process.argv[1])) {
   process.exitCode = await runCli(process.argv.slice(2));
 }

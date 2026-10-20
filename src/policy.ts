@@ -19,8 +19,13 @@ export function matchPathPattern(path: string, pattern: string): boolean {
     const character = pattern[index] ?? "";
     if (character === "*") {
       if (pattern[index + 1] === "*") {
-        expression += ".*";
-        index += 1;
+        if (pattern[index + 2] === "/") {
+          expression += "(?:.*/)?";
+          index += 2;
+        } else {
+          expression += ".*";
+          index += 1;
+        }
       } else {
         expression += "[^/]*";
       }

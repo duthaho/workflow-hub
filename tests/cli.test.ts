@@ -1,10 +1,23 @@
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { describe, expect, it, vi } from "vitest";
 
-import { runCli } from "../src/cli.js";
+import { isDirectExecution, runCli } from "../src/cli.js";
+
+describe("isDirectExecution", () => {
+  it("recognizes an npm-style symlinked executable", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "workflow-hub-bin-"));
+    const target = join(directory, "dist-cli.js");
+    const link = join(directory, "workflow-hub");
+    await writeFile(target, "#!/usr/bin/env node\n");
+    await symlink(target, link);
+
+    expect(isDirectExecution(pathToFileURL(target).href, link)).toBe(true);
+  });
+});
 
 describe("runCli", () => {
   it("initializes a project from explicit provider options", async () => {

@@ -68,7 +68,12 @@ export async function runReview(
     throw new Error(`Unable to resolve HEAD: ${head.stderr.trim()}`);
   }
   const headSha = head.stdout.trim();
-  const reviewPolicy = await readOptional(join(options.cwd, "REVIEW.md"));
+  const policy = await runner(
+    "git",
+    ["show", `${options.baseRef}:REVIEW.md`],
+    commandOptions,
+  );
+  const reviewPolicy = policy.exitCode === 0 ? policy.stdout : "";
   const temporaryDirectory = await mkdtemp(join(tmpdir(), "workflow-hub-review-"));
   const schemaPath = join(temporaryDirectory, "review.schema.json");
   const outputPath = join(temporaryDirectory, "review.output.json");

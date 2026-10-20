@@ -15,6 +15,11 @@ describe("matchPathPattern", () => {
     expect(matchPathPattern(path, pattern)).toBe(true);
   });
 
+  it("matches globstar directories at repository root", () => {
+    expect(matchPathPattern("auth/token.ts", "**/auth/**")).toBe(true);
+    expect(matchPathPattern("src/auth/token.ts", "**/auth/**")).toBe(true);
+  });
+
   it("does not overmatch a path prefix", () => {
     expect(matchPathPattern("src/author/name.ts", "src/auth/**")).toBe(false);
   });

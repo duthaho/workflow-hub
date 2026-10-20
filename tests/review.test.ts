@@ -54,6 +54,11 @@ describe("runReview", () => {
       })
       .mockResolvedValueOnce({
         exitCode: 0,
+        stdout: "trusted policy from base\n",
+        stderr: "",
+      })
+      .mockResolvedValueOnce({
+        exitCode: 0,
         stdout: JSON.stringify({ structured_output: rawReport }),
         stderr: "",
       });
@@ -68,8 +73,19 @@ describe("runReview", () => {
     });
 
     expect(report.findings[0]?.fingerprint).toMatch(/^[a-f0-9]{64}$/);
-    expect(runner.mock.calls[1]?.[0]).toBe("claude");
-    expect(runner.mock.calls[1]?.[1]).toContain("--restricted");
+    expect(runner.mock.calls[1]?.[0]).toBe("git");
+    expect(runner.mock.calls[1]?.[1]).toEqual([
+      "show",
+      "origin/main:REVIEW.md",
+    ]);
+    expect(runner.mock.calls[2]?.[0]).toBe("claude");
+    expect(runner.mock.calls[2]?.[1]).toContain("--restricted");
+    expect(runner.mock.calls[2]?.[1].at(-1)).toContain(
+      "trusted policy from base",
+    );
+    expect(runner.mock.calls[2]?.[1].at(-1)).not.toContain(
+      "Focus on regressions.",
+    );
     const persisted = JSON.parse(
       await readFile(
         join(cwd, ".workflow-hub/reports/correctness-claude.json"),
@@ -86,6 +102,11 @@ describe("runReview", () => {
       .mockResolvedValueOnce({
         exitCode: 0,
         stdout: "abcdef1234567890\n",
+        stderr: "",
+      })
+      .mockResolvedValueOnce({
+        exitCode: 0,
+        stdout: "trusted policy\n",
         stderr: "",
       })
       .mockResolvedValueOnce({
@@ -123,6 +144,11 @@ describe("runReview", () => {
       .mockResolvedValueOnce({
         exitCode: 0,
         stdout: "abcdef1234567890\n",
+        stderr: "",
+      })
+      .mockResolvedValueOnce({
+        exitCode: 0,
+        stdout: "trusted policy\n",
         stderr: "",
       })
       .mockResolvedValueOnce({
