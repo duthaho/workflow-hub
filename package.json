@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "description": "Provider-neutral agentic development and code review workflow for Claude Code and Codex",
   "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -22,13 +25,14 @@
     "LICENSE"
   ],
   "bin": {
-    "workflow-hub": "./dist/cli.js"
+    "workflow-hub": "./dist/packages/cli/src/cli.js"
   },
   "engines": {
     "node": ">=22"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "npm run clean && tsc -p tsconfig.build.json",
     "prepare": "npm run build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
