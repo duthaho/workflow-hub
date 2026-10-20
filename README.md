@@ -29,7 +29,7 @@ An agent never approves its own output. A review finding is valid only when it f
 Run from the target project:
 
 ```bash
-npx @duthaho/workflow-hub@0.1.0 init \
+npx --yes github:duthaho/workflow-hub#v0.1.0 init \
   --project my-service \
   --profile node \
   --author claude \

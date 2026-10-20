@@ -9,7 +9,7 @@ describe("agent review workflow trust boundary", () => {
     expect(workflow).not.toContain("- run: npm ci");
     expect(workflow).not.toContain("- run: npm run build");
     expect(workflow).toContain(
-      "npm install --global @duthaho/workflow-hub@0.1.0",
+      "npm install --global github:duthaho/workflow-hub#v0.1.0",
     );
     expect(workflow).toContain("run: workflow-hub review");
     expect(workflow).not.toMatch(
