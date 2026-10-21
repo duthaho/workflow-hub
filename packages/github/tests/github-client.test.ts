@@ -13,4 +13,10 @@ describe("GitHubClient", () => {
     const client = new GitHubClient({ owner: "o", repo: "r", token: "secret", fetcher: async () => new Response("bad", { status: 403 }) });
     await expect(client.createCheck({ name: "x", headSha: "head", conclusion: "failure", summary: "bad" })).rejects.toThrow(/GitHub API request failed: 403/);
   });
+
+  it("discovers lifecycle markers from non-paginated review threads", async () => {
+    const payload = { data: { repository: { pullRequest: { reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [{ id: "thread", isResolved: false, comments: { nodes: [{ databaseId: 9, body: "<!-- workflow-hub:finding:f1 -->" }] } }] } } } } };
+    const client = new GitHubClient({ owner: "o", repo: "r", token: "secret", fetcher: async () => new Response(JSON.stringify(payload), { status: 200 }) });
+    await expect(client.listFindingThreads(3)).resolves.toEqual([{ fingerprint: "f1", threadId: "thread", commentId: 9, resolved: false }]);
+  });
 });

@@ -1,3 +1,5 @@
+import type { ExistingFindingThread } from "./finding-sync.js";
+
 export type CheckConclusion = "success" | "failure" | "neutral";
 
 export class GitHubClient {
@@ -15,6 +17,22 @@ export class GitHubClient {
     });
     if (!response.ok) throw new Error(`GitHub API request failed: ${response.status}`);
     return response;
+  }
+
+  async listFindingThreads(pullNumber: number): Promise<ExistingFindingThread[]> {
+    const query = "query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){reviewThreads(first:100){pageInfo{hasNextPage} nodes{id isResolved comments(first:100){nodes{databaseId body}}}}}}}";
+    const response = await this.request("/graphql", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query, variables: { owner: this.input.owner, repo: this.input.repo, number: pullNumber } }) });
+    const payload: any = await response.json();
+    const threads = payload?.data?.repository?.pullRequest?.reviewThreads;
+    if (payload?.errors || !threads || threads.pageInfo?.hasNextPage === true || !Array.isArray(threads.nodes)) throw new Error("GitHub GraphQL review thread discovery was incomplete");
+    const result: ExistingFindingThread[] = [];
+    for (const thread of threads.nodes) {
+      const comment = thread?.comments?.nodes?.find((node: any) => typeof node?.body === "string" && /<!-- workflow-hub:finding:([^ >]+) -->/.test(node.body));
+      const match = typeof comment?.body === "string" ? /<!-- workflow-hub:finding:([^ >]+) -->/.exec(comment.body) : null;
+      if (typeof thread?.id !== "string" || typeof thread?.isResolved !== "boolean" || typeof comment?.databaseId !== "number" || !match?.[1]) continue;
+      result.push({ fingerprint: match[1], threadId: thread.id, commentId: comment.databaseId, resolved: thread.isResolved });
+    }
+    return result;
   }
 
   async createReviewComment(input: { pullNumber: number; commitSha: string; path: string; line: number; body: string }): Promise<void> {

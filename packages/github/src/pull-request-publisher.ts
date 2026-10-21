@@ -5,8 +5,9 @@ import { GitHubClient } from "./github-client.js";
 export class GitHubPullRequestPublisher {
   constructor(private readonly input: { client: GitHubClient; pullNumber: number; reviewedSha: string }) {}
 
-  async publish(findings: ReviewFinding[], existing: ExistingFindingThread[]): Promise<void> {
-    const actions = planFindingThreadSync({ findings, existing, commitSha: this.input.reviewedSha });
+  async publish(findings: ReviewFinding[], existing?: ExistingFindingThread[]): Promise<void> {
+    const persisted = existing ?? await this.input.client.listFindingThreads(this.input.pullNumber);
+    const actions = planFindingThreadSync({ findings, existing: persisted, commitSha: this.input.reviewedSha });
     for (const action of actions) {
       if (action.kind === "create") await this.input.client.createReviewComment({ pullNumber: this.input.pullNumber, commitSha: this.input.reviewedSha, path: action.path, line: action.line, body: action.body });
       else if (action.kind === "update") await this.input.client.updateReviewComment({ commentId: action.commentId, body: action.body });
