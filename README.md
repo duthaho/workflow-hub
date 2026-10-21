@@ -152,6 +152,10 @@ This repository ships three workflows:
 - `CI`: tests Node 22 and 24, builds, and validates the npm package
 - `CodeQL`: deterministic JavaScript/TypeScript security analysis
 - `Agent Review`: opt-in Claude or Codex review
+- `Review Policy`: publishes the reviewed agent result as a trusted check
+- `Merge Policy`: evaluates the exact PR SHA from trusted default-branch code after CI, CodeQL, or Agent Review completes
+
+`Merge Policy` fails closed unless `test-node-22`, `test-node-24`, `CodeQL`, and `workflow-hub / review-policy` succeed. It also blocks unresolved workflow-hub review threads. Medium-risk PRs require the maintainer-applied `workflow-hub:owner-attested` label; high-risk PRs require an approval from a non-author. The workflow never checks out PR code: it checks out the default branch only, installs dependencies with lifecycle scripts disabled, and grants only read/check publication permissions.
 
 Third-party actions are pinned to commit SHAs. The AI workflow is disabled until repository variable `WORKFLOW_HUB_AI_REVIEW=enabled` and the relevant provider secret are configured. Fork PRs must not receive provider secrets.
 
@@ -204,7 +208,7 @@ The suite follows RED → GREEN → REFACTOR. See `AGENTS.md` and `REVIEW.md`.
 
 ## Status
 
-Phase 1 local orchestration is implemented on the path to `0.2.0`: deterministic verification, parallel scouts, independent verification, persisted rounds, and bounded convergence. Remaining work before `0.2.0` includes GitHub finding/thread synchronization, operational merge-policy checks, eval feedback, and hosted operational hardening.
+Phase 1 local orchestration, Phase 2 GitHub finding/check publication, and Phase 3 risk-scaled merge-policy evaluation are implemented on the path to `0.2.0`. Remaining work before `0.2.0` includes reviewer eval/feedback metrics and a released artifact driving a real consumer PR through the complete lifecycle.
 
 ## License
 

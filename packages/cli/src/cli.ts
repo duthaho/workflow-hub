@@ -20,6 +20,7 @@ import {
 } from "./verification.js";
 import { runDevelopCommand } from "./commands/develop.js";
 import { publishGitHubCheck } from "./commands/github-check.js";
+import { publishGitHubMergePolicy } from "./commands/github-merge-policy.js";
 import {
   runReviewLoopCommand,
   type ReviewLoopCommand,
@@ -48,6 +49,8 @@ Commands:
                        [--reviewer claude|codex] [--max-rounds 3]
   workflow-hub github-check --repo <owner/repo> --head <sha>
                             --conclusion success|failure|neutral --summary <text>
+  workflow-hub github-merge-policy --repo <owner/repo> --pr <number>
+                            [--required-check <name,...>] [--security-check <name,...>]
 `;
 
 function optionValue(args: string[], name: string): string | undefined {
@@ -221,6 +224,26 @@ async function handleReviewLoop(
   return loopExitCode(result.outcome);
 }
 
+async function handleGitHubMergePolicy(args: string[], context: CliContext): Promise<number> {
+  const repo = optionValue(args, "--repo");
+  const pullNumber = Number(optionValue(args, "--pr"));
+  if (!repo || !Number.isInteger(pullNumber) || pullNumber < 1) throw new Error("github-merge-policy requires --repo and a positive --pr");
+  const [owner, name, ...extra] = repo.split("/");
+  if (!owner || !name || extra.length > 0) throw new Error("--repo must be owner/repo");
+  const csv = (value: string | undefined, defaults: string[]): string[] => (value ?? defaults.join(",")).split(",").map((entry) => entry.trim()).filter(Boolean);
+  const result = await publishGitHubMergePolicy({
+    owner,
+    repo: name,
+    pullNumber,
+    token: process.env.GITHUB_TOKEN,
+    highRiskPaths: [".github/**", "**/auth/**", "**/migrations/**"],
+    requiredDeterministicChecks: csv(optionValue(args, "--required-check"), ["test-node-22", "test-node-24"]),
+    requiredSecurityChecks: csv(optionValue(args, "--security-check"), ["CodeQL"]),
+  });
+  context.stdout(JSON.stringify(result));
+  return result.allowed ? 0 : 2;
+}
+
 async function handleGitHubCheck(args: string[], context: CliContext): Promise<number> {
   const repo = optionValue(args, "--repo");
   const headSha = optionValue(args, "--head");
@@ -271,6 +294,8 @@ export async function runCli(
         return await handleReviewLoop(args.slice(1), context, true);
       case "github-check":
         return await handleGitHubCheck(args.slice(1), context);
+      case "github-merge-policy":
+        return await handleGitHubMergePolicy(args.slice(1), context);
       default:
         throw new Error(`Unknown command: ${args[0]}`);
     }
