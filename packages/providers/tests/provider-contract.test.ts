@@ -51,7 +51,8 @@ describe("role provider contracts", () => {
     const provider = new CodexProvider({ cwd: "/repo", executor: process, allowFix: true });
     await expect(provider.runRole({ ...request, role: "fix-agent", readOnly: false })).resolves.toMatchObject({ role: "fix-agent" });
     const args = vi.mocked(process.run).mock.calls[0]?.[1] ?? [];
-    expect(args).toEqual(expect.arrayContaining(["--sandbox", "workspace-write", "--ask-for-approval", "on-request"]));
+    expect(args.slice(0, 4)).toEqual(["--ask-for-approval", "on-request", "exec", "--sandbox"]);
+    expect(args).toEqual(expect.arrayContaining(["workspace-write"]));
   });
 
   it("runs Codex review roles in an ephemeral read-only sandbox", async () => {

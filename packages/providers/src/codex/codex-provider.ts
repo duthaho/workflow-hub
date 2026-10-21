@@ -17,9 +17,9 @@ export class CodexProvider extends RoleProvider {
     return {
       command: this.binary ?? defaultCodexBinary(),
       args: [
+        ...(input.request.role === "fix-agent" ? ["--ask-for-approval", "on-request"] : []),
         "exec",
         "--sandbox", input.request.role === "fix-agent" ? "workspace-write" : "read-only",
-        ...(input.request.role === "fix-agent" ? ["--ask-for-approval", "on-request"] : []),
         "--ephemeral",
         "--ignore-user-config",
         "--output-schema", input.schemaPath,
