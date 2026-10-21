@@ -13,9 +13,9 @@ const request: AgentRoleRequest = {
   diff: "diff --git a/src/app.ts b/src/app.ts", readOnly: true,
 };
 
-function result(provider: string): string {
+function result(provider: string, role = "security-scout"): string {
   return JSON.stringify({
-    status: "completed", role: "security-scout", provider,
+    status: "completed", role, provider,
     summary: "No findings", findings: [], verifications: [], error: "",
   });
 }
@@ -44,6 +44,14 @@ describe("role provider contracts", () => {
       command: "cmd.exe",
       args: ["/d", "/s", "/c", "codex.cmd", "exec", "-"],
     });
+  });
+
+  it("enables in-workspace command execution for a Codex fix agent", async () => {
+    const process = executor(result("codex", "fix-agent"));
+    const provider = new CodexProvider({ cwd: "/repo", executor: process, allowFix: true });
+    await expect(provider.runRole({ ...request, role: "fix-agent", readOnly: false })).resolves.toMatchObject({ role: "fix-agent" });
+    const args = vi.mocked(process.run).mock.calls[0]?.[1] ?? [];
+    expect(args).toEqual(expect.arrayContaining(["--sandbox", "workspace-write", "--ask-for-approval", "on-request"]));
   });
 
   it("runs Codex review roles in an ephemeral read-only sandbox", async () => {

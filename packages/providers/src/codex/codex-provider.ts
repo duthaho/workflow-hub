@@ -19,6 +19,7 @@ export class CodexProvider extends RoleProvider {
       args: [
         "exec",
         "--sandbox", input.request.role === "fix-agent" ? "workspace-write" : "read-only",
+        ...(input.request.role === "fix-agent" ? ["--ask-for-approval", "on-request"] : []),
         "--ephemeral",
         "--ignore-user-config",
         "--output-schema", input.schemaPath,
