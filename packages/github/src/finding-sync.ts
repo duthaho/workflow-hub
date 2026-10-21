@@ -3,12 +3,13 @@ import { isActionableReviewFinding, type ReviewFinding } from "../../core/src/do
 export interface ExistingFindingThread {
   fingerprint: string;
   threadId: string;
+  commentId: number;
   resolved: boolean;
 }
 
 export type FindingThreadAction =
   | { kind: "create"; fingerprint: string; path: string; line: number; body: string }
-  | { kind: "update"; fingerprint: string; threadId: string; body: string }
+  | { kind: "update"; fingerprint: string; threadId: string; commentId: number; body: string }
   | { kind: "resolve"; fingerprint: string; threadId: string };
 
 function marker(fingerprint: string): string {
@@ -31,7 +32,7 @@ export function planFindingThreadSync(input: {
     const thread = existing.get(finding.fingerprint);
     if (isActionableReviewFinding(finding)) {
       if (thread === undefined) actions.push({ kind: "create", fingerprint: finding.fingerprint, path: finding.location.path, line: finding.location.endLine, body: body(finding, input.commitSha) });
-      else actions.push({ kind: "update", fingerprint: finding.fingerprint, threadId: thread.threadId, body: body(finding, input.commitSha) });
+      else actions.push({ kind: "update", fingerprint: finding.fingerprint, threadId: thread.threadId, commentId: thread.commentId, body: body(finding, input.commitSha) });
     } else if (thread !== undefined && !thread.resolved) {
       actions.push({ kind: "resolve", fingerprint: finding.fingerprint, threadId: thread.threadId });
     }

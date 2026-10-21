@@ -17,6 +17,25 @@ export class GitHubClient {
     return response;
   }
 
+  async createReviewComment(input: { pullNumber: number; commitSha: string; path: string; line: number; body: string }): Promise<void> {
+    await this.request(`/repos/${encodeURIComponent(this.input.owner)}/${encodeURIComponent(this.input.repo)}/pulls/${input.pullNumber}/comments`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body: input.body, commit_id: input.commitSha, path: input.path, line: input.line, side: "RIGHT" }),
+    });
+  }
+
+  async updateReviewComment(input: { commentId: number; body: string }): Promise<void> {
+    await this.request(`/repos/${encodeURIComponent(this.input.owner)}/${encodeURIComponent(this.input.repo)}/pulls/comments/${input.commentId}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ body: input.body }),
+    });
+  }
+
+  async resolveReviewThread(threadId: string): Promise<void> {
+    const response = await this.request("/graphql", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: "mutation($thread:ID!){resolveReviewThread(input:{threadId:$thread}){thread{id}}}", variables: { thread: threadId } }) });
+    const data: unknown = await response.json();
+    if (typeof data !== "object" || data === null || "errors" in data) throw new Error("GitHub GraphQL response was invalid");
+  }
+
   async createCheck(input: { name: string; headSha: string; conclusion: CheckConclusion; summary: string }): Promise<number> {
     const response = await this.request(`/repos/${encodeURIComponent(this.input.owner)}/${encodeURIComponent(this.input.repo)}/check-runs`, {
       method: "POST",

@@ -21,7 +21,7 @@ describe("finding thread sync", () => {
   it("updates a persisted finding instead of duplicating it and resolves closed lifecycles", () => {
     const plan = planFindingThreadSync({
       findings: [finding("open"), finding("fixed", "fixed")], commitSha: "head",
-      existing: [{ fingerprint: "open", threadId: "t1", resolved: false }, { fingerprint: "fixed", threadId: "t2", resolved: false }],
+      existing: [{ fingerprint: "open", threadId: "t1", commentId: 1, resolved: false }, { fingerprint: "fixed", threadId: "t2", commentId: 2, resolved: false }],
     });
     expect(plan).toEqual([
       expect.objectContaining({ kind: "update", threadId: "t1" }),
