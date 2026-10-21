@@ -32,6 +32,7 @@ describe("buildProviderInvocation", () => {
     const invocation = buildProviderInvocation("codex", options);
 
     expect(invocation.command).toBe("codex");
+    expect(buildProviderInvocation("codex", options, "win32").command).toBe("codex.cmd");
     expect(invocation.args.slice(0, 2)).toEqual(["exec", "--sandbox"]);
     expect(invocation.args).toContain("read-only");
     expect(invocation.args).toContain("--ephemeral");

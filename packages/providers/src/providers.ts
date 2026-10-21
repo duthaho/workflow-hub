@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { defaultCodexBinary } from "./codex/codex-provider.js";
+
 import {
   ReviewReportSchema,
   type ProviderName,
@@ -14,7 +16,7 @@ export interface ProviderInvocationOptions {
 }
 
 export interface ProviderInvocation {
-  command: "claude" | "codex";
+  command: string;
   args: string[];
   outputSource: "stdout" | "file";
 }
@@ -42,6 +44,7 @@ export const reviewReportJsonSchema = buildProviderReportJsonSchema();
 export function buildProviderInvocation(
   provider: ProviderName,
   options: ProviderInvocationOptions,
+  platform = process.platform,
 ): ProviderInvocation {
   if (provider === "claude") {
     return {
@@ -69,7 +72,7 @@ export function buildProviderInvocation(
   }
 
   return {
-    command: "codex",
+    command: defaultCodexBinary(platform),
     args: [
       "exec",
       "--sandbox",
