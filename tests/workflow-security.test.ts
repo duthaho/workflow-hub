@@ -19,4 +19,13 @@ describe("agent review workflow trust boundary", () => {
       /- name: Run .* review\n        env:\n          (?:ANTHROPIC|OPENAI)_API_KEY:/,
     );
   });
+
+  it("publishes policy status from workflow_run without checking out PR code", async () => {
+    const workflow = await readFile(".github/workflows/review-policy.yml", "utf8");
+    expect(workflow).toContain("workflow_run:");
+    expect(workflow).toContain("checks: write");
+    expect(workflow).not.toContain("actions/checkout");
+    expect(workflow).not.toContain("ANTHROPIC_API_KEY");
+    expect(workflow).not.toContain("OPENAI_API_KEY");
+  });
 });
