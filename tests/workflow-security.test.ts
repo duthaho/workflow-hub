@@ -40,4 +40,13 @@ describe("agent review workflow trust boundary", () => {
     expect(workflow).not.toContain("ANTHROPIC_API_KEY");
     expect(workflow).not.toContain("OPENAI_API_KEY");
   });
+
+  it("creates releases only from a manually selected, verified package version", async () => {
+    const workflow = await readFile(".github/workflows/release.yml", "utf8");
+    expect(workflow).toContain("workflow_dispatch:");
+    expect(workflow).toContain("contents: write");
+    expect(workflow).toContain("npm ci --ignore-scripts");
+    expect(workflow).toContain("npm run check");
+    expect(workflow).toContain("gh release create");
+  });
 });
