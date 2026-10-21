@@ -1,0 +1,44 @@
+name: Review Policy
+
+on:
+  workflow_run:
+    workflows: [Agent Review]
+    types: [completed]
+
+permissions:
+  checks: write
+  contents: read
+
+jobs:
+  publish:
+    # workflow_run runs trusted default-branch workflow code. It never checks out or executes PR code.
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.pull_requests[0] != null
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish review policy check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          RESULT: ${{ github.event.workflow_run.conclusion }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          set -euo pipefail
+          case "$RESULT" in
+            success) conclusion=success ;;
+            cancelled|skipped) conclusion=neutral ;;
+            *) conclusion=failure ;;
+          esac
+          summary="Agent Review completed with ${RESULT}. Run: ${RUN_URL}"
+          printf '{"name":"workflow-hub / review-policy","head_sha":"%s","status":"completed","conclusion":"%s","output":{"title":"workflow-hub review policy","summary":"%s"}}' \
+            "$HEAD_SHA" "$conclusion" "$summary" \
+            | curl --fail-with-body --silent --show-error \
+                --request POST \
+                --header "Authorization: Bearer $GH_TOKEN" \
+                --header "Accept: application/vnd.github+json" \
+                --header "X-GitHub-Api-Version: 2022-11-28" \
+                --header "Content-Type: application/json" \
+                --data @- \
+                "https://api.github.com/repos/${REPOSITORY}/check-runs"

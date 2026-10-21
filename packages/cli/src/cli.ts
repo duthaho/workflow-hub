@@ -19,6 +19,7 @@ import {
   type CommandRunner,
 } from "./verification.js";
 import { runDevelopCommand } from "./commands/develop.js";
+import { publishGitHubCheck } from "./commands/github-check.js";
 import {
   runReviewLoopCommand,
   type ReviewLoopCommand,
@@ -45,6 +46,8 @@ Commands:
                            [--session <id> | --resume <id>] [--fix]
   workflow-hub develop --task <path> [--author claude|codex]
                        [--reviewer claude|codex] [--max-rounds 3]
+  workflow-hub github-check --repo <owner/repo> --head <sha>
+                            --conclusion success|failure|neutral --summary <text>
 `;
 
 function optionValue(args: string[], name: string): string | undefined {
@@ -218,6 +221,20 @@ async function handleReviewLoop(
   return loopExitCode(result.outcome);
 }
 
+async function handleGitHubCheck(args: string[], context: CliContext): Promise<number> {
+  const repo = optionValue(args, "--repo");
+  const headSha = optionValue(args, "--head");
+  const summary = optionValue(args, "--summary");
+  const conclusion = optionValue(args, "--conclusion");
+  if (!repo || !headSha || !summary || !conclusion) throw new Error("github-check requires --repo, --head, --conclusion, and --summary");
+  const [owner, name, ...extra] = repo.split("/");
+  if (!owner || !name || extra.length > 0) throw new Error("--repo must be owner/repo");
+  if (conclusion !== "success" && conclusion !== "failure" && conclusion !== "neutral") throw new Error("--conclusion must be success, failure, or neutral");
+  const id = await publishGitHubCheck({ owner, repo: name, token: process.env.GITHUB_TOKEN, headSha, conclusion, summary });
+  context.stdout(JSON.stringify({ checkRunId: id, conclusion }));
+  return conclusion === "failure" ? 2 : 0;
+}
+
 export async function runCli(
   args: string[],
   context: CliContext = {
@@ -252,6 +269,8 @@ export async function runCli(
         return await handleReviewLoop(args.slice(1), context, false);
       case "develop":
         return await handleReviewLoop(args.slice(1), context, true);
+      case "github-check":
+        return await handleGitHubCheck(args.slice(1), context);
       default:
         throw new Error(`Unknown command: ${args[0]}`);
     }
