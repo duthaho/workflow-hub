@@ -103,6 +103,29 @@ Runs a provider in a fresh, read-only session:
 
 Reports are validated before being written to `.workflow-hub/reports/`. Invalid JSON, metadata mismatches, missing evidence, and provider failures fail closed. Findings receive stable SHA-256 fingerprints for deduplication.
 
+### `workflow-hub review-loop`
+
+Runs the Phase 1 local continuous-review harness:
+
+```bash
+workflow-hub review-loop --base origin/main --depth standard
+workflow-hub review-loop --resume <session-id> --fix
+```
+
+The controller runs deterministic verification, required correctness/security scouts, semantic deduplication, independent finding verification, and bounded reconciliation. Review roles are read-only and ephemeral, and prompts are streamed over standard input rather than process arguments. Each round captures an immutable Git snapshot, including staged, unstaged, and untracked files, so fix output is reviewed before it is committed. State is atomically persisted under `.workflow-hub/state/` with an exclusive compare-and-swap lock and bound to the task and review-policy fingerprint; malformed provider output, missing finding evidence, missing security review, unavailable independent verifier quorum, corrupt state, and mismatched resume inputs fail closed. Confirmed low-severity findings remain visible but do not block convergence; medium, high, and critical findings are actionable. Exit codes are `0` for pass, `1` for blocked, and `2` for actionable/escalated.
+
+Provider executables are resolved from `PATH` by default. Set `WORKFLOW_HUB_CODEX_BIN` or `WORKFLOW_HUB_CLAUDE_BIN` to an explicit executable path when the CLI is installed outside the subprocess `PATH`.
+
+### `workflow-hub develop`
+
+Runs the same controller with an explicit, write-capable fix role separated from read-only reviewers:
+
+```bash
+workflow-hub develop --task task.md --author claude --reviewer codex --max-rounds 3
+```
+
+Fixes are followed by deterministic verification and a fresh re-review. Review rounds are capped and no-progress sessions escalate rather than loop indefinitely.
+
 ### `workflow-hub doctor`
 
 Validates project configuration and reports the required providers. Provider authentication diagnostics will be expanded before the stable release.
@@ -144,15 +167,17 @@ Recommended `main` ruleset:
 ## Architecture
 
 ```text
-CLI
- ├── config parser (Zod, fail closed)
- ├── initializer (additive writes, dry-run, force guard)
- ├── deterministic verification runner
- ├── risk and merge policy
- └── review orchestrator
-      ├── Claude adapter
-      ├── Codex adapter
-      └── shared structured report schema
+CLI (review-loop / develop)
+ └── local review application service
+      ├── deterministic verification port
+      ├── repository diff port
+      ├── parallel correctness/security/test/architecture scouts
+      ├── semantic finding identity and independent verifier quorum
+      ├── bounded fix/re-review convergence controller
+      ├── versioned atomic state store
+      └── provider role adapters
+           ├── Claude (ephemeral restricted review; explicit fix capability)
+           └── Codex (ephemeral read-only review; explicit workspace-write fix)
 ```
 
 Design patterns:
@@ -179,7 +204,7 @@ The suite follows RED → GREEN → REFACTOR. See `AGENTS.md` and `REVIEW.md`.
 
 ## Status
 
-`0.1.0` is the first working MVP. Remaining work before stable release includes GitHub comment synchronization, merge-policy status checks, metrics, and broader project profiles.
+Phase 1 local orchestration is implemented on the path to `0.2.0`: deterministic verification, parallel scouts, independent verification, persisted rounds, and bounded convergence. Remaining work before `0.2.0` includes GitHub finding/thread synchronization, operational merge-policy checks, eval feedback, and hosted operational hardening.
 
 ## License
 

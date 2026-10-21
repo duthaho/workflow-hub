@@ -20,6 +20,7 @@ export const defaultCommandRunner: CommandRunner = (
     const child = spawn(command, args, {
       cwd: options.cwd,
       shell: options.shell,
+      env: options.env,
       stdio: options.inheritStdio ? "inherit" : ["ignore", "pipe", "pipe"],
     });
 

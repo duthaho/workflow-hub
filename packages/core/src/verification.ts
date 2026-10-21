@@ -13,6 +13,7 @@ export interface RunCommandOptions {
   cwd: string;
   shell: boolean;
   inheritStdio: boolean;
+  env?: NodeJS.ProcessEnv;
 }
 
 export type CommandRunner = (

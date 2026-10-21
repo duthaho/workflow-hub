@@ -18,12 +18,18 @@ import {
   runVerification,
   type CommandRunner,
 } from "./verification.js";
+import { runDevelopCommand } from "./commands/develop.js";
+import {
+  runReviewLoopCommand,
+  type ReviewLoopCommand,
+} from "./commands/review-loop.js";
 
 export interface CliContext {
   cwd: string;
   stdout: (message: string) => void;
   stderr: (message: string) => void;
   runner?: CommandRunner;
+  reviewLoopCommand?: ReviewLoopCommand;
 }
 
 const usage = `workflow-hub <command>
@@ -35,6 +41,10 @@ Commands:
   workflow-hub verify
   workflow-hub doctor
   workflow-hub review --kind correctness|security [--provider claude|codex]
+  workflow-hub review-loop [--base origin/main] [--depth quick|standard|deep]
+                           [--session <id> | --resume <id>] [--fix]
+  workflow-hub develop --task <path> [--author claude|codex]
+                       [--reviewer claude|codex] [--max-rounds 3]
 `;
 
 function optionValue(args: string[], name: string): string | undefined {
@@ -138,6 +148,76 @@ async function handleReview(
   return actionable.length === 0 ? 0 : 2;
 }
 
+function parseDepth(value: string | undefined): "quick" | "standard" | "deep" {
+  const depth = value ?? "standard";
+  if (depth !== "quick" && depth !== "standard" && depth !== "deep") {
+    throw new Error("--depth must be quick, standard, or deep");
+  }
+  return depth;
+}
+
+function loopExitCode(outcome: "passed" | "actionable" | "blocked" | "escalated"): number {
+  if (outcome === "passed") return 0;
+  if (outcome === "blocked") return 1;
+  return 2;
+}
+
+async function handleReviewLoop(
+  args: string[],
+  context: CliContext,
+  develop: boolean,
+): Promise<number> {
+  const baseRef = optionValue(args, "--base") ?? "origin/main";
+  const runner = context.runner ?? defaultCommandRunner;
+  let config = await loadWorkflowConfigFromRef(context.cwd, baseRef, runner);
+  if (develop) {
+    const author = ProviderNameSchema.parse(optionValue(args, "--author") ?? config.providers.author);
+    const reviewer = ProviderNameSchema.parse(optionValue(args, "--reviewer") ?? config.providers.reviewers[0]);
+    const roundsValue = optionValue(args, "--max-rounds");
+    const maxRounds = roundsValue === undefined ? config.review.maxRounds : Number(roundsValue);
+    if (!Number.isInteger(maxRounds) || maxRounds < 1 || maxRounds > 10) {
+      throw new Error("--max-rounds must be an integer between 1 and 10");
+    }
+    config = {
+      ...config,
+      providers: { author, reviewers: [reviewer] },
+      review: { ...config.review, maxRounds },
+    };
+  }
+  const command = context.reviewLoopCommand ?? runReviewLoopCommand;
+  const sessionId = optionValue(args, "--session");
+  const resume = optionValue(args, "--resume");
+  if (sessionId !== undefined && resume !== undefined) {
+    throw new Error("Use either --session or --resume, not both");
+  }
+  const common = {
+    cwd: context.cwd,
+    config,
+    baseRef,
+    depth: parseDepth(optionValue(args, "--depth")),
+    runner,
+    ...(sessionId === undefined ? {} : { sessionId }),
+    ...(resume === undefined ? {} : { resume }),
+  } as const;
+  const result = develop
+    ? await runDevelopCommand(
+        {
+          ...common,
+          taskPath: optionValue(args, "--task") ?? (() => { throw new Error("develop requires --task <path>"); })(),
+        },
+        command,
+      )
+    : await command({ ...common, fix: hasFlag(args, "--fix") });
+  context.stdout(JSON.stringify({
+    outcome: result.outcome,
+    sessionId: result.session.id,
+    state: result.session.state,
+    rounds: result.session.rounds.length,
+    risk: result.risk.tier,
+  }));
+  return loopExitCode(result.outcome);
+}
+
 export async function runCli(
   args: string[],
   context: CliContext = {
@@ -168,6 +248,10 @@ export async function runCli(
         return await handleDoctor(context);
       case "review":
         return await handleReview(args.slice(1), context);
+      case "review-loop":
+        return await handleReviewLoop(args.slice(1), context, false);
+      case "develop":
+        return await handleReviewLoop(args.slice(1), context, true);
       default:
         throw new Error(`Unknown command: ${args[0]}`);
     }
