@@ -1,6 +1,10 @@
 import type { AgentRoleRequest } from "../../../core/src/ports/agent-provider.js";
 import { RoleProvider } from "../role-provider.js";
 
+export function defaultCodexBinary(platform = process.platform): string {
+  return platform === "win32" ? "codex.cmd" : "codex";
+}
+
 export class CodexProvider extends RoleProvider {
   readonly name = "codex" as const;
 
@@ -11,7 +15,7 @@ export class CodexProvider extends RoleProvider {
     outputPath: string;
   }) {
     return {
-      command: this.binary ?? "codex",
+      command: this.binary ?? defaultCodexBinary(),
       args: [
         "exec",
         "--sandbox", input.request.role === "fix-agent" ? "workspace-write" : "read-only",
