@@ -4,6 +4,7 @@ import type { AgentRoleRequest } from "../../core/src/ports/agent-provider.js";
 import { ClaudeProvider } from "../src/claude/claude-provider.js";
 import { CodexProvider } from "../src/codex/codex-provider.js";
 import type { ProviderProcessExecutor } from "../src/process-executor.js";
+import { defaultCodexBinary } from "../src/codex/codex-provider.js";
 
 const request: AgentRoleRequest = {
   sessionId: "session-1", round: 1, role: "security-scout",
@@ -32,6 +33,11 @@ function executor(output: string, claude = false): ProviderProcessExecutor {
 }
 
 describe("role provider contracts", () => {
+  it("uses the npm .cmd shim for the default Codex binary on Windows", () => {
+    expect(defaultCodexBinary("win32")).toBe("codex.cmd");
+    expect(defaultCodexBinary("linux")).toBe("codex");
+  });
+
   it("runs Codex review roles in an ephemeral read-only sandbox", async () => {
     const process = executor(result("codex"));
     const provider = new CodexProvider({ cwd: "/repo", executor: process });
