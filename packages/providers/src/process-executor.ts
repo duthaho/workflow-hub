@@ -10,10 +10,22 @@ export interface ProviderProcessExecutor {
   run(command: string, args: string[], options: { cwd: string; stdin?: string; timeoutMs?: number }): Promise<ProviderProcessResult>;
 }
 
+export function wrapWindowsCmdShim(
+  command: string,
+  args: string[],
+  platform = process.platform,
+): { command: string; args: string[] } {
+  if (platform === "win32" && command.toLowerCase().endsWith(".cmd")) {
+    return { command: process.env.ComSpec ?? "cmd.exe", args: ["/d", "/s", "/c", command, ...args] };
+  }
+  return { command, args };
+}
+
 export const defaultProviderProcessExecutor: ProviderProcessExecutor = {
   run(command, args, options) {
     return new Promise((resolve, reject) => {
-      const child = spawn(command, args, {
+      const resolved = wrapWindowsCmdShim(command, args);
+      const child = spawn(resolved.command, resolved.args, {
         cwd: options.cwd,
         detached: process.platform !== "win32",
         shell: false,

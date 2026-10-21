@@ -4,6 +4,7 @@ import type { AgentRoleRequest } from "../../core/src/ports/agent-provider.js";
 import { ClaudeProvider } from "../src/claude/claude-provider.js";
 import { CodexProvider } from "../src/codex/codex-provider.js";
 import type { ProviderProcessExecutor } from "../src/process-executor.js";
+import { wrapWindowsCmdShim } from "../src/process-executor.js";
 import { defaultCodexBinary } from "../src/codex/codex-provider.js";
 
 const request: AgentRoleRequest = {
@@ -36,6 +37,13 @@ describe("role provider contracts", () => {
   it("uses the npm .cmd shim for the default Codex binary on Windows", () => {
     expect(defaultCodexBinary("win32")).toBe("codex.cmd");
     expect(defaultCodexBinary("linux")).toBe("codex");
+  });
+
+  it("runs Windows cmd shims through cmd.exe", () => {
+    expect(wrapWindowsCmdShim("codex.cmd", ["exec", "-"] , "win32")).toEqual({
+      command: "cmd.exe",
+      args: ["/d", "/s", "/c", "codex.cmd", "exec", "-"],
+    });
   });
 
   it("runs Codex review roles in an ephemeral read-only sandbox", async () => {

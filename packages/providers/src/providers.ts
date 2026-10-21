@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { defaultCodexBinary } from "./codex/codex-provider.js";
+import { wrapWindowsCmdShim } from "./process-executor.js";
 
 import {
   ReviewReportSchema,
@@ -71,20 +72,21 @@ export function buildProviderInvocation(
     };
   }
 
+  const args = [
+    "exec",
+    "--sandbox",
+    "read-only",
+    "--ephemeral",
+    "--ignore-user-config",
+    "--output-schema",
+    options.schemaPath,
+    "--output-last-message",
+    options.outputPath,
+    options.prompt,
+  ];
+  const executable = wrapWindowsCmdShim(defaultCodexBinary(platform), args, platform);
   return {
-    command: defaultCodexBinary(platform),
-    args: [
-      "exec",
-      "--sandbox",
-      "read-only",
-      "--ephemeral",
-      "--ignore-user-config",
-      "--output-schema",
-      options.schemaPath,
-      "--output-last-message",
-      options.outputPath,
-      options.prompt,
-    ],
+    ...executable,
     outputSource: "file",
   };
 }

@@ -1,6 +1,6 @@
 {
   "name": "@duthaho/workflow-hub",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Provider-neutral agentic development and code review workflow for Claude Code and Codex",
   "type": "module",
   "workspaces": [
