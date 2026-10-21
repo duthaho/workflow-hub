@@ -21,6 +21,7 @@ import {
 import { runDevelopCommand } from "./commands/develop.js";
 import { publishGitHubCheck } from "./commands/github-check.js";
 import { publishGitHubMergePolicy } from "./commands/github-merge-policy.js";
+import { runEvaluatorFile } from "./commands/eval.js";
 import {
   runReviewLoopCommand,
   type ReviewLoopCommand,
@@ -51,6 +52,7 @@ Commands:
                             --conclusion success|failure|neutral --summary <text>
   workflow-hub github-merge-policy --repo <owner/repo> --pr <number>
                             [--required-check <name,...>] [--security-check <name,...>]
+  workflow-hub eval --input <corpus-and-results.json>
 `;
 
 function optionValue(args: string[], name: string): string | undefined {
@@ -224,6 +226,13 @@ async function handleReviewLoop(
   return loopExitCode(result.outcome);
 }
 
+async function handleEval(args: string[], context: CliContext): Promise<number> {
+  const input = optionValue(args, "--input");
+  if (!input) throw new Error("eval requires --input <corpus-and-results.json>");
+  context.stdout(JSON.stringify(await runEvaluatorFile(input)));
+  return 0;
+}
+
 async function handleGitHubMergePolicy(args: string[], context: CliContext): Promise<number> {
   const repo = optionValue(args, "--repo");
   const pullNumber = Number(optionValue(args, "--pr"));
@@ -296,6 +305,8 @@ export async function runCli(
         return await handleGitHubCheck(args.slice(1), context);
       case "github-merge-policy":
         return await handleGitHubMergePolicy(args.slice(1), context);
+      case "eval":
+        return await handleEval(args.slice(1), context);
       default:
         throw new Error(`Unknown command: ${args[0]}`);
     }
