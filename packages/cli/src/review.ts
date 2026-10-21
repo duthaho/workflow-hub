@@ -11,8 +11,8 @@ import {
 } from "../../core/src/contracts.js";
 import {
   buildProviderInvocation,
+  buildReviewReportJsonSchemaForInvocation,
   extractStructuredReport,
-  reviewReportJsonSchema,
 } from "../../providers/src/providers.js";
 import {
   defaultCommandRunner,
@@ -81,7 +81,11 @@ export async function runReview(
   try {
     await writeFile(
       schemaPath,
-      `${JSON.stringify(reviewReportJsonSchema, null, 2)}\n`,
+      `${JSON.stringify(buildReviewReportJsonSchemaForInvocation({
+        provider: options.provider,
+        baseRef: options.baseRef,
+        headSha,
+      }), null, 2)}\n`,
       "utf8",
     );
     const invocation = buildProviderInvocation(options.provider, {

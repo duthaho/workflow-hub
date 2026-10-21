@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildProviderInvocation,
+  buildReviewReportJsonSchemaForInvocation,
   extractStructuredReport,
   reviewReportJsonSchema,
 } from "../src/providers.js";
@@ -47,6 +48,17 @@ describe("buildProviderInvocation", () => {
 });
 
 describe("reviewReportJsonSchema", () => {
+  it("pins provider and git-range metadata for each review invocation", () => {
+    const schema = buildReviewReportJsonSchemaForInvocation({
+      provider: "codex",
+      baseRef: "origin/main",
+      headSha: "abcdef1234567890",
+    }) as { properties: Record<string, { const?: string }> };
+    expect(schema.properties.provider?.const).toBe("codex");
+    expect(schema.properties.baseRef?.const).toBe("origin/main");
+    expect(schema.properties.headSha?.const).toBe("abcdef1234567890");
+  });
+
   it("uses a strict provider schema without controller-owned fingerprints", () => {
     const schema = reviewReportJsonSchema as unknown as {
       properties: {
