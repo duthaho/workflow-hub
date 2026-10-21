@@ -168,6 +168,10 @@ Recommended `main` ruleset:
 - block force pushes and deletion,
 - use merge queue where available.
 
+## Evaluator feedback
+
+`@workflow-hub/evals` provides a deterministic corpus contract for comparing expected review findings with provider output. Scores include precision, recall, false positives, false negatives, and missed critical findings; malformed or duplicate case/finding identities are rejected rather than silently merged. Provider summaries retain critical misses so aggregate metrics cannot mask them.
+
 ## Architecture
 
 ```text
