@@ -42,6 +42,30 @@ function buildProviderReportJsonSchema(): z.core.JSONSchema.JSONSchema {
 
 export const reviewReportJsonSchema = buildProviderReportJsonSchema();
 
+export function buildReviewReportJsonSchemaForInvocation(input: {
+  provider: ProviderName;
+  baseRef: string;
+  headSha: string;
+}): z.core.JSONSchema.JSONSchema {
+  const schema = structuredClone(reviewReportJsonSchema) as z.core.JSONSchema.JSONSchema & {
+    properties?: Record<string, unknown>;
+  };
+  if (!schema.properties) {
+    throw new Error("Unable to constrain provider review JSON schema");
+  }
+  const constrain = (property: "provider" | "baseRef" | "headSha", value: string) => {
+    const original = schema.properties?.[property];
+    if (typeof original !== "object" || original === null || Array.isArray(original)) {
+      throw new Error(`Unable to constrain provider review schema property: ${property}`);
+    }
+    schema.properties![property] = { ...original, const: value };
+  };
+  constrain("provider", input.provider);
+  constrain("baseRef", input.baseRef);
+  constrain("headSha", input.headSha);
+  return schema;
+}
+
 export function buildProviderInvocation(
   provider: ProviderName,
   options: ProviderInvocationOptions,
@@ -62,7 +86,11 @@ export function buildProviderInvocation(
         "--output-format",
         "json",
         "--json-schema",
-        JSON.stringify(reviewReportJsonSchema),
+        JSON.stringify(buildReviewReportJsonSchemaForInvocation({
+          provider,
+          baseRef: options.baseRef,
+          headSha: options.headSha,
+        })),
         "--max-turns",
         "12",
         "--no-session-persistence",
