@@ -28,4 +28,16 @@ describe("agent review workflow trust boundary", () => {
     expect(workflow).not.toContain("ANTHROPIC_API_KEY");
     expect(workflow).not.toContain("OPENAI_API_KEY");
   });
+
+  it("evaluates merge policy only from trusted default-branch code", async () => {
+    const workflow = await readFile(".github/workflows/merge-policy.yml", "utf8");
+    expect(workflow).toContain("workflow_run:");
+    expect(workflow).toContain("checks: write");
+    expect(workflow).toContain("pull-requests: read");
+    expect(workflow).toContain("ref: ${{ github.event.repository.default_branch }}");
+    expect(workflow).toContain("npm ci --ignore-scripts");
+    expect(workflow).toContain("github-merge-policy");
+    expect(workflow).not.toContain("ANTHROPIC_API_KEY");
+    expect(workflow).not.toContain("OPENAI_API_KEY");
+  });
 });
